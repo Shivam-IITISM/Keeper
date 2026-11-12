@@ -73,15 +73,13 @@ function save(){clearTimeout(saveT);saveT=setTimeout(async()=>{try{await writeRa
 /* ---------- login (only when Firebase is configured) ---------- */
 function lock(msg){
  $('#lock').hidden=false;$('#app').hidden=true;
- $('#lock').innerHTML=`<h1>Keeper</h1><p class="mu" style="margin-bottom:18px">Your ideas and jobs, held to account.</p>
- <label>Email</label><input id="em" type="email" autocomplete="username"><label>Password</label><input id="pw" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')login(false)">
- <div class="err">${msg||''}</div>
- <div class="row"><button class="pri" onclick="login(false)" style="flex:1">Sign in</button><button onclick="login(true)">Create account</button></div>`;
+ $('#lock').innerHTML=`<h1>Keeper</h1><p class="mu" style="margin-bottom:22px">Your ideas and jobs, held to account. Sign in to open your own space.</p>
+ <button class="pri" onclick="google()" style="width:100%;padding:12px">Continue with Google</button><div class="err" style="margin-top:10px">${msg||''}</div>`;
 }
-async function login(create){
- try{const a=fb.auth(),e=$('#em').value,p=$('#pw').value;
-  create?await a.createUserWithEmailAndPassword(e,p):await a.signInWithEmailAndPassword(e,p)}
- catch(e){lock(esc(e.message||'Login failed'))}
+async function google(){
+ const a=fb.auth(),pr=new firebase.auth.GoogleAuthProvider();
+ try{await a.signInWithPopup(pr)}
+ catch(e){if(e.code==='auth/popup-blocked'||e.code==='auth/operation-not-supported-in-this-environment')a.signInWithRedirect(pr);else if(e.code!=='auth/popup-closed-by-user')lock(esc(e.message))}
 }
 async function load(){
  try{const raw=await readRaw();DB=raw?JSON.parse(raw.json):blank();if(!raw)await writeRaw({json:JSON.stringify(DB),t:Date.now()});
@@ -103,7 +101,7 @@ const openT=ctx=>DB.tasks.filter(t=>!t.done&&(!ctx||t.ctx===ctx));
 /* ---------- views ---------- */
 const TABS=[['dash','Dashboard'],['work','Work'],['personal','Personal'],['ideas','Ideas'],['learn','Learning'],['goals','Targets']];
 function render(){
- $('#app').innerHTML=`<nav><h1>Keeper</h1>${TABS.map(([k,n])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${n}</button>`).join('')}<div class="sp"></div><small id="sync" class="mu" style="padding:6px 12px">Ready</small>${CLOUD?'<button onclick="logout()">Sign out</button>':''}</nav>
+ $('#app').innerHTML=`<nav><h1>Keeper</h1>${TABS.map(([k,n])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${n}</button>`).join('')}<div class="sp"></div>${CLOUD&&user?`<small class="mu" style="padding:6px 12px;word-break:break-word">${esc(user.displayName||user.email)}</small>`:''}<small id="sync" class="mu" style="padding:6px 12px">Ready</small>${CLOUD?'<button onclick="logout()">Sign out</button>':''}</nav>
  <main>${({dash,work:()=>matrix('work'),personal:()=>matrix('personal'),ideas,learn,goals})[tab==='work'||tab==='personal'?tab:tab]()}</main>
  <button class="fab pri" onclick="wiz()" aria-label="Add job">+</button>`;
 }
@@ -183,7 +181,7 @@ function ext(id){const t=DB.tasks.find(x=>x.id===id),pen=5*(t.ext+1);
  t.deadline=n;t.ext++;DB.score-=pen;save();detail(id);render()}
 
 /* ---------- boot ---------- */
-if(CLOUD){firebase.initializeApp(CFG);fb=firebase;fb.auth().onAuthStateChanged(u=>{user=u;u?load():lock()})}
+if(CLOUD){firebase.initializeApp(CFG);fb=firebase;fb.auth().onAuthStateChanged(u=>{user=u;if(u)load();else{DB=null;lock()}})}
 else load();
 </script>
 </body>
