@@ -42,6 +42,29 @@ main{flex:1;padding:24px;max-width:1100px;margin:auto;width:100%}
 .mu{color:var(--mu)}.chart{display:flex;gap:8px;align-items:flex-end;height:120px}.chart div{flex:1;text-align:center;font-size:11px;color:var(--mu)}.chart i{display:block;background:var(--ac);border-radius:5px 5px 0 0;min-height:2px;margin-bottom:4px}
 #lock{max-width:380px;margin:12vh auto;padding:20px}#lock h1{font-size:44px;margin-bottom:4px}
 .err{color:var(--bad);min-height:20px;font-size:13px}
+
+[hidden]{display:none!important}
+body{background:radial-gradient(900px 500px at 85% -10%,#f2c14e22,transparent 60%),radial-gradient(700px 500px at -10% 110%,#5aa9e61f,transparent 60%),var(--bg);background-attachment:fixed}
+main{animation:in .35s ease}@keyframes in{from{opacity:0;transform:translateY(8px)}}
+.card{box-shadow:0 1px 0 #ffffff08 inset,0 8px 24px -14px #000a}
+.t{transition:transform .15s,border-color .15s,box-shadow .15s}.t:hover{transform:translateY(-2px);box-shadow:0 8px 18px -10px #000}
+.q{background:linear-gradient(180deg,var(--p2),var(--p) 90px)}
+.stat .big{background:linear-gradient(120deg,var(--tx),var(--ac));-webkit-background-clip:text;background-clip:text;color:transparent}
+.stat .big.late{background:none;color:var(--bad)}
+nav{background:linear-gradient(180deg,var(--p),transparent)}
+nav h1{display:flex;align-items:center;gap:10px}
+.logo{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--ac),#e8833a);color:#1a1405;display:grid;place-items:center;font:800 20px 'Bricolage Grotesque',sans-serif}
+nav button{border-radius:10px;transition:background .15s}nav button:hover{background:var(--p2);color:var(--tx)}
+.fab{background:linear-gradient(135deg,var(--ac),#e8833a);border:0;animation:pulse 3s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 6px 20px #f2c14e44}50%{box-shadow:0 6px 30px #f2c14e99}}
+.pick button.on{box-shadow:0 4px 14px -4px var(--ac)}
+#lock{max-width:400px;margin:12vh auto;padding:34px 30px;background:var(--p);border:1px solid var(--ln);border-radius:22px;box-shadow:0 30px 60px -30px #000;text-align:center;animation:in .5s ease}
+#lock .logo{margin:0 auto 14px;width:56px;height:56px;font-size:30px;border-radius:16px}
+#lock h1{font-size:40px}
+.gbtn{display:flex;gap:12px;align-items:center;justify-content:center;width:100%;padding:13px;font-weight:600;background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:12px;box-shadow:0 2px 8px -3px #0006}
+.gbtn:hover{background:#f6f8fb;border-color:#c6c9ce}
+.gbtn b{font:700 18px Arial;background:conic-gradient(#ea4335 0 25%,#fbbc05 0 50%,#34a853 0 75%,#4285f4 0);-webkit-background-clip:text;background-clip:text;color:transparent}
+.mode{font-size:11px;padding:6px 12px;color:var(--mu)}.mode.warn{color:var(--bad)}
 @media(max-width:760px){#app{flex-direction:column}nav{width:100%;height:auto;position:static;flex-direction:row;overflow:auto;border:0;border-bottom:1px solid var(--ln);padding:8px}nav h1,nav .sp{display:none}nav button{white-space:nowrap}.g2{grid-template-columns:1fr}main{padding:14px}}
 </style>
 </head>
@@ -73,8 +96,8 @@ function save(){clearTimeout(saveT);saveT=setTimeout(async()=>{try{await writeRa
 /* ---------- login (only when Firebase is configured) ---------- */
 function lock(msg){
  $('#lock').hidden=false;$('#app').hidden=true;
- $('#lock').innerHTML=`<h1>Keeper</h1><p class="mu" style="margin-bottom:22px">Your ideas and jobs, held to account. Sign in to open your own space.</p>
- <button class="pri" onclick="google()" style="width:100%;padding:12px">Continue with Google</button><div class="err" style="margin-top:10px">${msg||''}</div>`;
+ $('#lock').innerHTML=`<div class="logo">K</div><h1>Keeper</h1><p class="mu" style="margin:6px 0 26px">Your ideas and jobs, held to account.<br>Sign in to open your own space.</p>
+ <button class="gbtn" onclick="google()"><b>G</b> Continue with Google</button><div class="err" style="margin-top:12px">${msg||''}</div>`;
 }
 async function google(){
  const a=fb.auth(),pr=new firebase.auth.GoogleAuthProvider();
@@ -99,9 +122,9 @@ function autoDeadline(w){
 const openT=ctx=>DB.tasks.filter(t=>!t.done&&(!ctx||t.ctx===ctx));
 
 /* ---------- views ---------- */
-const TABS=[['dash','Dashboard'],['work','Work'],['personal','Personal'],['ideas','Ideas'],['learn','Learning'],['goals','Targets']];
+const TABS=[['dash','◉  Dashboard'],['work','▣  Work'],['personal','◐  Personal'],['ideas','✦  Ideas'],['learn','✎  Learning'],['goals','◎  Targets']];
 function render(){
- $('#app').innerHTML=`<nav><h1>Keeper</h1>${TABS.map(([k,n])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${n}</button>`).join('')}<div class="sp"></div>${CLOUD&&user?`<small class="mu" style="padding:6px 12px;word-break:break-word">${esc(user.displayName||user.email)}</small>`:''}<small id="sync" class="mu" style="padding:6px 12px">Ready</small>${CLOUD?'<button onclick="logout()">Sign out</button>':''}</nav>
+ $('#app').innerHTML=`<nav><h1><span class="logo">K</span>Keeper</h1>${TABS.map(([k,n])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${n}</button>`).join('')}<div class="sp"></div>${CLOUD&&user?`<small class="mu" style="padding:6px 12px;word-break:break-word">${esc(user.displayName||user.email)}</small>`:''}<small class="mode ${CLOUD?'':'warn'}">${CLOUD?'☁ Cloud sync on':'⚠ Local only (Firebase not set)'}</small><small id="sync" class="mu" style="padding:6px 12px">Ready</small>${CLOUD?'<button onclick="logout()">Sign out</button>':''}</nav>
  <main>${({dash,work:()=>matrix('work'),personal:()=>matrix('personal'),ideas,learn,goals})[tab==='work'||tab==='personal'?tab:tab]()}</main>
  <button class="fab pri" onclick="wiz()" aria-label="Add job">+</button>`;
 }
@@ -181,7 +204,8 @@ function ext(id){const t=DB.tasks.find(x=>x.id===id),pen=5*(t.ext+1);
  t.deadline=n;t.ext++;DB.score-=pen;save();detail(id);render()}
 
 /* ---------- boot ---------- */
-if(CLOUD){firebase.initializeApp(CFG);fb=firebase;fb.auth().onAuthStateChanged(u=>{user=u;if(u)load();else{DB=null;lock()}})}
+if(CLOUD&&typeof firebase==='undefined'){lock('Could not load Firebase. Check your internet or ad-blocker and refresh.')}
+else if(CLOUD){firebase.initializeApp(CFG);fb=firebase;fb.auth().onAuthStateChanged(u=>{user=u;if(u)load();else{DB=null;lock()}})}
 else load();
 </script>
 </body>
