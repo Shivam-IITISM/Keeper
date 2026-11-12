@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keeper — my command desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1419;--p:#171e26;--p2:#1f2833;--ln:#2b3644;--tx:#e8edf2;--mu:#8b99a8;--ac:#f2c14e;--ok:#4cc38a;--bad:#ef6a5b;--bl:#5aa9e6;--r:14px}
+@media(prefers-color-scheme:light){:root{--bg:#f3f1ec;--p:#fff;--p2:#f6f4ef;--ln:#dcd8cf;--tx:#1b232c;--mu:#6b7683;--ac:#c98a00;--ok:#1f9d6a;--bad:#d6483a;--bl:#2f7fc1}}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--tx);font:15px/1.5 Figtree,system-ui,sans-serif;min-height:100vh}
+h1,h2,h3,.big{font-family:'Bricolage Grotesque',Figtree,sans-serif;letter-spacing:-.01em}
+button{font:inherit;cursor:pointer;border:1px solid var(--ln);background:var(--p2);color:var(--tx);border-radius:10px;padding:8px 14px}
+button:hover{border-color:var(--ac)}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+button.pri{background:var(--ac);color:#1a1405;border-color:var(--ac);font-weight:600}
+input,textarea,select{font:inherit;width:100%;background:var(--p2);color:var(--tx);border:1px solid var(--ln);border-radius:10px;padding:10px 12px;margin:4px 0 10px}
+label{color:var(--mu);font-size:13px}
+#app{display:flex;min-height:100vh}
+nav{width:200px;padding:20px 12px;border-right:1px solid var(--ln);position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:4px}
+nav h1{font-size:24px;padding:0 10px 14px}
+nav button{text-align:left;border:0;background:none;padding:10px 12px;color:var(--mu)}
+nav button.on{background:var(--p);color:var(--tx);font-weight:600;box-shadow:inset 3px 0 var(--ac)}
+nav .sp{flex:1}
+main{flex:1;padding:24px;max-width:1100px;margin:auto;width:100%}
+.hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:10px;flex-wrap:wrap}
+.hd h2{font-size:28px}
+.grid{display:grid;gap:14px}.g2{grid-template-columns:1fr 1fr}.g4{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.card{background:var(--p);border:1px solid var(--ln);border-radius:var(--r);padding:16px}
+.stat .big{font-size:38px;font-weight:800;line-height:1.1}.stat span{color:var(--mu);font-size:13px}
+.q{min-height:180px}.q h3{font-size:16px;margin-bottom:2px}.q small{color:var(--mu);display:block;margin-bottom:10px}
+.q1{border-top:3px solid var(--bad)}.q2{border-top:3px solid var(--bl)}.q3{border-top:3px solid var(--ac)}.q4{border-top:3px solid var(--mu)}
+.t{background:var(--p2);border:1px solid var(--ln);border-radius:10px;padding:9px 11px;margin-bottom:8px;cursor:pointer}
+.t:hover{border-color:var(--ac)}.t b{font-weight:600}.t small{color:var(--mu);display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 0}
+.late{color:var(--bad)!important}.bar{height:8px;background:var(--p2);border-radius:9px;overflow:hidden;margin:6px 0}.bar i{display:block;height:100%;background:var(--ok)}
+.fab{position:fixed;right:22px;bottom:22px;width:58px;height:58px;border-radius:50%;font-size:30px;padding:0;box-shadow:0 6px 20px #0006}
+#m{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;padding:16px;z-index:9}
+#m.on{display:flex}#m>div{background:var(--p);border:1px solid var(--ln);border-radius:var(--r);padding:22px;width:min(520px,100%);max-height:90vh;overflow:auto}
+.pick{display:flex;gap:6px;margin:6px 0 12px}.pick button{flex:1;padding:10px 0}.pick button.on{background:var(--ac);color:#1a1405;border-color:var(--ac);font-weight:700}
+.row{display:flex;gap:8px;align-items:center}.row>*{margin:0}.sp2{justify-content:space-between}
+.mu{color:var(--mu)}.chart{display:flex;gap:8px;align-items:flex-end;height:120px}.chart div{flex:1;text-align:center;font-size:11px;color:var(--mu)}.chart i{display:block;background:var(--ac);border-radius:5px 5px 0 0;min-height:2px;margin-bottom:4px}
+#lock{max-width:380px;margin:12vh auto;padding:20px}#lock h1{font-size:44px;margin-bottom:4px}
+.err{color:var(--bad);min-height:20px;font-size:13px}
+@media(max-width:760px){#app{flex-direction:column}nav{width:100%;height:auto;position:static;flex-direction:row;overflow:auto;border:0;border-bottom:1px solid var(--ln);padding:8px}nav h1,nav .sp{display:none}nav button{white-space:nowrap}.g2{grid-template-columns:1fr}main{padding:14px}}
+</style>
+</head>
+<body>
+<div id="lock"></div>
+<div id="app" hidden></div>
+<div id="m"><div id="mb"></div></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+/* SETUP: paste your Firebase web config here. Leave apiKey empty = local-only mode (no login, data stays in this browser). */
+const CFG={apiKey:"",authDomain:"",projectId:"",appId:""};
+
+const $=s=>document.querySelector(s),uid=()=>Math.random().toString(36).slice(2,9);
+const iso=d=>{d=new Date(d);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const TODAY=()=>iso(new Date()),addD=(n,from)=>{const d=new Date(from||Date.now());d.setDate(d.getDate()+n);return iso(d)};
+const diff=a=>Math.round((new Date(a+'T00:00')-new Date(TODAY()+'T00:00'))/864e5);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const CLOUD=!!CFG.apiKey;let fb,user,DB,tab='dash',saveT;
+
+/* ---------- storage (plain JSON; Firestore if configured, else this browser) ---------- */
+const blank=()=>({tasks:[],ideas:[],learn:[],goals:[],score:0,log:[]});
+async function readRaw(){return CLOUD?(await fb.firestore().doc('vaults/'+user.uid).get()).data():JSON.parse(localStorage.getItem('keeper_data')||'null')}
+async function writeRaw(v){CLOUD?await fb.firestore().doc('vaults/'+user.uid).set(v):localStorage.setItem('keeper_data',JSON.stringify(v))}
+function save(){clearTimeout(saveT);saveT=setTimeout(async()=>{try{await writeRaw({json:JSON.stringify(DB),t:Date.now()});$('#sync')&&($('#sync').textContent='Saved ✓')}catch(e){$('#sync')&&($('#sync').textContent='Save failed')}},400);$('#sync')&&($('#sync').textContent='Saving…')}
+
+/* ---------- login (only when Firebase is configured) ---------- */
+function lock(msg){
+ $('#lock').hidden=false;$('#app').hidden=true;
+ $('#lock').innerHTML=`<h1>Keeper</h1><p class="mu" style="margin-bottom:18px">Your ideas and jobs, held to account.</p>
+ <label>Email</label><input id="em" type="email" autocomplete="username"><label>Password</label><input id="pw" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')login(false)">
+ <div class="err">${msg||''}</div>
+ <div class="row"><button class="pri" onclick="login(false)" style="flex:1">Sign in</button><button onclick="login(true)">Create account</button></div>`;
+}
+async function login(create){
+ try{const a=fb.auth(),e=$('#em').value,p=$('#pw').value;
+  create?await a.createUserWithEmailAndPassword(e,p):await a.signInWithEmailAndPassword(e,p)}
+ catch(e){lock(esc(e.message||'Login failed'))}
+}
+async function load(){
+ try{const raw=await readRaw();DB=raw?JSON.parse(raw.json):blank();if(!raw)await writeRaw({json:JSON.stringify(DB),t:Date.now()});
+  $('#lock').hidden=true;$('#app').hidden=false;render()}
+ catch(e){lock(esc(e.message||'Could not load data'))}
+}
+const logout=()=>fb.auth().signOut();
+
+/* ---------- priority logic ---------- */
+const quad=t=>t.imp>=3&&t.urg>=3?1:t.imp>=3?2:t.urg>=3?3:4;
+const QN={1:['Do now','Important + urgent'],2:['Schedule','Important, not urgent'],3:['Squeeze / delegate','Urgent, not important'],4:['Drop or park','Neither']};
+function autoDeadline(w){
+ const open=DB.tasks.filter(t=>!t.done&&t.ctx===w.ctx).length;
+ const base={5:1,4:3,3:7,2:14,1:30}[w.urg];
+ return addD(base+Math.ceil(w.eff/4)+Math.floor(open/3)+(w.imp<=2?2:0));
+}
+const openT=ctx=>DB.tasks.filter(t=>!t.done&&(!ctx||t.ctx===ctx));
+
+/* ---------- views ---------- */
+const TABS=[['dash','Dashboard'],['work','Work'],['personal','Personal'],['ideas','Ideas'],['learn','Learning'],['goals','Targets']];
+function render(){
+ $('#app').innerHTML=`<nav><h1>Keeper</h1>${TABS.map(([k,n])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${n}</button>`).join('')}<div class="sp"></div><small id="sync" class="mu" style="padding:6px 12px">Ready</small>${CLOUD?'<button onclick="logout()">Sign out</button>':''}</nav>
+ <main>${({dash,work:()=>matrix('work'),personal:()=>matrix('personal'),ideas,learn,goals})[tab==='work'||tab==='personal'?tab:tab]()}</main>
+ <button class="fab pri" onclick="wiz()" aria-label="Add job">+</button>`;
+}
+function tcard(t){const d=diff(t.deadline),done=t.steps.filter(s=>s.done).length;
+ return`<div class="t" onclick="detail('${t.id}')"><b>${esc(t.title)}</b><small><span class="${d<0?'late':''}">${d<0?Math.abs(d)+'d overdue':d===0?'due today':'in '+d+'d'}</span>${t.steps.length?`<span>${done}/${t.steps.length} steps</span>`:''}${t.ext?`<span class="late">extended ×${t.ext}</span>`:''}</small></div>`}
+function matrix(ctx){
+ const ts=openT(ctx).sort((a,b)=>a.deadline.localeCompare(b.deadline));
+ return`<div class="hd"><h2>${ctx==='work'?'At work':'Personal'}</h2><span class="mu">${ts.length} open</span></div><div class="grid g2">${[1,2,3,4].map(n=>`<div class="card q q${n}"><h3>${QN[n][0]}</h3><small>${QN[n][1]}</small>${ts.filter(t=>quad(t)===n).map(tcard).join('')||'<span class="mu">Nothing here.</span>'}</div>`).join('')}</div>`}
+function dash(){
+ const done=DB.tasks.filter(t=>t.done),y=new Date().getFullYear(),m=TODAY().slice(0,7);
+ const onT=done.filter(t=>t.doneAt<=t.deadline).length,rate=done.length?Math.round(onT/done.length*100):0;
+ const od=openT().filter(t=>diff(t.deadline)<0).length;
+ const focus=openT().sort((a,b)=>quad(a)-quad(b)||a.deadline.localeCompare(b.deadline)).slice(0,3);
+ const cnt=yr=>Array.from({length:12},(_,i)=>done.filter(t=>t.doneAt.startsWith(yr+'-'+String(i+1).padStart(2,'0'))).length);
+ const mo=cnt(y),pm=cnt(y-1),mx=Math.max(1,...mo,...pm),cm=new Date().getMonth();
+ const ytd=a=>a.slice(0,cm+1).reduce((s,v)=>s+v,0),A=ytd(mo),B=ytd(pm);
+ const otr=yr=>{const d=done.filter(t=>t.doneAt.startsWith(yr));return d.length?Math.round(d.filter(t=>t.doneAt<=t.deadline).length/d.length*100):null};
+ const R1=otr(String(y)),R0=otr(String(y-1));
+ const dl=(a,b,u='')=>b===0&&a===0?'no change':b===0?'+'+a+u+' (no data last year)':(a>=b?'+':'')+(a-b)+u+(u?'':' ('+(a>=b?'+':'')+Math.round((a-b)/b*100)+'%)');
+ const col=(a,b)=>a>=b?'var(--ok)':'var(--bad)';
+ const mom=mo[cm]-(cm?mo[cm-1]:pm[11]);
+ const gl=DB.goals.filter(g=>g.period==='month'||g.period==='year').map(g=>`<div style="margin-bottom:10px"><div class="row sp2"><span>${esc(g.title)} <span class="mu">(${g.period})</span></span><span class="mu">${g.progress}/${g.target}</span></div><div class="bar"><i style="width:${Math.min(100,g.progress/g.target*100)}%"></i></div></div>`).join('')||'<span class="mu">Set a monthly or yearly target in Targets.</span>';
+ return`<div class="hd"><h2>Today</h2></div>
+ <div class="grid g4"><div class="card stat"><div class="big">${DB.score}</div><span>discipline score</span></div><div class="card stat"><div class="big">${rate}%</div><span>done on time</span></div><div class="card stat"><div class="big ${od?'late':''}">${od}</div><span>overdue</span></div><div class="card stat"><div class="big">${done.filter(t=>t.doneAt.startsWith(m)).length}</div><span>finished this month</span></div></div>
+ <div class="grid g2" style="margin-top:14px"><div class="card"><h3 style="margin-bottom:10px">Do these first</h3>${focus.map(tcard).join('')||'<span class="mu">Nothing open. Tap + when something comes in.</span>'}</div>
+ <div class="card"><h3 style="margin-bottom:10px">Targets</h3>${gl}</div></div>
+ <div class="card" style="margin-top:14px"><div class="row sp2" style="flex-wrap:wrap;margin-bottom:12px"><h3>Am I improving?</h3><span class="mu" style="font-size:13px"><span style="display:inline-block;width:10px;height:10px;background:var(--mu);opacity:.5;border-radius:2px"></span> ${y-1} &nbsp;<span style="display:inline-block;width:10px;height:10px;background:var(--ac);border-radius:2px"></span> ${y}</span></div>
+ <div class="grid g4" style="margin-bottom:16px">
+ <div><span class="mu">Year to date vs ${y-1}</span><div class="big" style="font-size:22px;color:${col(A,B)}">${dl(A,B)}</div><span class="mu">${A} vs ${B} jobs</span></div>
+ <div><span class="mu">On-time rate vs ${y-1}</span><div class="big" style="font-size:22px;color:${R1===null||R0===null?'var(--mu)':col(R1,R0)}">${R1===null||R0===null?'not enough data':dl(R1,R0,' pts')}</div><span class="mu">${R1??'–'}% vs ${R0??'–'}%</span></div>
+ <div><span class="mu">This month vs last month</span><div class="big" style="font-size:22px;color:${mom>=0?'var(--ok)':'var(--bad)'}">${mom>=0?'+':''}${mom}</div><span class="mu">${mo[cm]} finished so far</span></div></div>
+ <div class="chart">${mo.map((v,i)=>`<div><div style="display:flex;gap:2px;align-items:flex-end;height:96px"><i style="flex:1;height:${pm[i]/mx*90}px;background:var(--mu);opacity:.5"></i><i style="flex:1;height:${v/mx*90}px"></i></div>${'JFMAMJJASOND'[i]}<br>${pm[i]}→${v}</div>`).join('')}</div></div>`}
+function ideas(){return`<div class="hd"><h2>Ideas</h2></div><div class="card"><div class="row"><input id="ni" placeholder="Drop an idea before it escapes…" onkeydown="if(event.key==='Enter')addIdea()"><button class="pri" onclick="addIdea()">Save</button></div></div><div style="margin-top:14px">${DB.ideas.map(i=>`<div class="card row sp2" style="margin-bottom:8px"><span>${esc(i.t)}</span><span class="row"><button onclick="wiz('${i.id}')">Make it a job</button><button onclick="DB.ideas=DB.ideas.filter(x=>x.id!=='${i.id}');save();render()">✕</button></span></div>`).join('')||'<p class="mu">No ideas parked yet.</p>'}</div>`}
+function learn(){return`<div class="hd"><h2>Learning</h2></div><div class="card"><div class="row"><input id="nl" placeholder="Something to learn…" onkeydown="if(event.key==='Enter')addLearn()"><button class="pri" onclick="addLearn()">Add</button></div></div><div style="margin-top:14px">${DB.learn.map(l=>`<div class="card row sp2" style="margin-bottom:8px"><label class="row" style="color:var(--tx);font-size:15px"><input type="checkbox" style="width:auto" ${l.done?'checked':''} onchange="tl('${l.id}')"><span style="${l.done?'text-decoration:line-through;opacity:.6':''}">${esc(l.t)}</span></label><span class="mu">${l.from?'for: '+esc(l.from):''}</span></div>`).join('')||'<p class="mu">Learning needs from your job plans will show up here.</p>'}</div>`}
+function goals(){return`<div class="hd"><h2>Targets</h2></div><div class="card"><div class="row"><input id="gt" placeholder="Target, e.g. Finish 8 paper sections"><input id="gn" type="number" min="1" value="5" style="max-width:80px"><select id="gp" style="max-width:110px"><option value="month">Month</option><option value="year">Year</option></select><button class="pri" onclick="addGoal()">Add</button></div></div><div style="margin-top:14px">${DB.goals.map(g=>`<div class="card" style="margin-bottom:8px"><div class="row sp2"><b>${esc(g.title)} <span class="mu">(${g.period})</span></b><span class="row"><button onclick="gp('${g.id}',-1)">−</button><b>${g.progress}/${g.target}</b><button onclick="gp('${g.id}',1)">+</button><button onclick="DB.goals=DB.goals.filter(x=>x.id!=='${g.id}');save();render()">✕</button></span></div><div class="bar"><i style="width:${Math.min(100,g.progress/g.target*100)}%"></i></div></div>`).join('')||'<p class="mu">No targets yet.</p>'}</div>`}
+
+/* ---------- actions ---------- */
+const addIdea=()=>{const v=$('#ni').value.trim();if(!v)return;DB.ideas.unshift({id:uid(),t:v});save();render()};
+const addLearn=()=>{const v=$('#nl').value.trim();if(!v)return;DB.learn.unshift({id:uid(),t:v,done:false});save();render()};
+const tl=id=>{const l=DB.learn.find(x=>x.id===id);l.done=!l.done;save();render()};
+const addGoal=()=>{const t=$('#gt').value.trim();if(!t)return;DB.goals.push({id:uid(),title:t,target:+$('#gn').value||1,period:$('#gp').value,progress:0});save();render()};
+const gp=(id,n)=>{const g=DB.goals.find(x=>x.id===id);g.progress=Math.max(0,g.progress+n);save();render()};
+const modal=h=>{$('#mb').innerHTML=h;$('#m').classList.add('on')},closeM=()=>$('#m').classList.remove('on');
+$('#m').addEventListener('click',e=>{if(e.target.id==='m')closeM()});
+const pk=(k,n)=>`<div class="pick">${[1,2,3,4,5].map(v=>`<button class="${W[k]===v?'on':''}" onclick="W.${k}=${v};wizR()">${v}</button>`).join('')}</div>`;
+
+/* ---------- add-job wizard (3 short stages) ---------- */
+let W;
+function wiz(ideaId){const i=DB.ideas.find(x=>x.id===ideaId);W={s:1,title:i?i.t:'',ctx:tab==='personal'?'personal':'work',imp:3,urg:3,eff:2,learn:'',idea:ideaId};wizR()}
+function wizR(){
+ const f=document.activeElement;if(W.s===1&&$('#wt'))W.title=$('#wt').value,W.learn=$('#wl').value;
+ if(W.s===1)return modal(`<h3>What is it? <span class="mu">1/3</span></h3><label>Job</label><input id="wt" value="${esc(W.title)}" autofocus><label>Where does it belong?</label><div class="pick"><button class="${W.ctx==='work'?'on':''}" onclick="W.ctx='work';wizR()">Work</button><button class="${W.ctx==='personal'?'on':''}" onclick="W.ctx='personal';wizR()">Personal</button></div><label>Need to learn something for it? (optional)</label><input id="wl" value="${esc(W.learn)}"><div class="row sp2"><button onclick="closeM()">Cancel</button><button class="pri" onclick="W.title=$('#wt').value.trim();W.learn=$('#wl').value.trim();if(W.title){W.s=2;wizR()}">Next</button></div>`);
+ if(W.s===2)return modal(`<h3>How much does it matter? <span class="mu">2/3</span></h3><label>Importance — does it move my real goals? (1 low – 5 critical)</label>${pk('imp')}<label>Urgency — what happens if it waits a week? (1 nothing – 5 someone is blocked)</label>${pk('urg')}<label>Effort in hours (total)</label><input id="we" type="number" min="1" value="${W.eff}" onchange="W.eff=+this.value||1"><div class="row sp2"><button onclick="W.s=1;wizR()">Back</button><button class="pri" onclick="W.eff=+$('#we').value||1;W.s=3;wizR()">Next</button></div>`);
+ W.dl=autoDeadline(W);const q=quad(W);
+ modal(`<h3>Your deadline <span class="mu">3/3</span></h3><p><b>${esc(W.title)}</b></p><p class="mu" style="margin:8px 0">Lands in <b style="color:var(--ac)">${QN[q][0]}</b> (${W.ctx}).</p><div class="card stat" style="margin:12px 0"><div class="big">${W.dl}</div><span>${diff(W.dl)} days from today. Extending it later costs points.</span></div><div class="row sp2"><button onclick="W.s=2;wizR()">Back</button><button class="pri" onclick="commit()">I commit</button></div>`)}
+function commit(){
+ const t={id:uid(),title:W.title,ctx:W.ctx,imp:W.imp,urg:W.urg,eff:W.eff,deadline:W.dl,created:TODAY(),done:false,ext:0,steps:[]};
+ DB.tasks.push(t);if(W.learn)DB.learn.unshift({id:uid(),t:W.learn,from:W.title,done:false});
+ if(W.idea)DB.ideas=DB.ideas.filter(x=>x.id!==W.idea);
+ save();closeM();tab=W.ctx;render();detail(t.id)}
+
+/* ---------- task detail: plan steps, finish, extend ---------- */
+function detail(id){const t=DB.tasks.find(x=>x.id===id),d=diff(t.deadline);
+ modal(`<h3>${esc(t.title)}</h3><p class="${d<0?'late':'mu'}">Due ${t.deadline} · ${d<0?Math.abs(d)+' days overdue':d+' days left'} · ${QN[quad(t)][0]}</p>
+ <h4 style="margin:14px 0 6px">Plan: internal targets</h4>
+ ${t.steps.map((s,i)=>`<div class="row sp2" style="margin-bottom:6px"><label class="row" style="color:var(--tx)"><input type="checkbox" style="width:auto" ${s.done?'checked':''} onchange="stp('${id}',${i})"><span style="${s.done?'text-decoration:line-through;opacity:.6':''}">${esc(s.t)}</span></label><span class="mu ${!s.done&&diff(s.d)<0?'late':''}">${s.d}</span></div>`).join('')||'<p class="mu">Break it down so the deadline is believable.</p>'}
+ <div class="row" style="margin-top:8px"><input id="st" placeholder="Step"><input id="sd" type="date" max="${t.deadline}" value="${t.deadline}" style="max-width:150px"><button onclick="addStep('${id}')">Add</button></div>
+ <div class="row sp2" style="margin-top:16px"><span class="row"><button onclick="ext('${id}')">Need more time</button><button onclick="if(confirm('Delete this job?')){DB.tasks=DB.tasks.filter(x=>x.id!=='${id}');save();closeM();render()}">Delete</button></span><span class="row"><button onclick="closeM();render()">Close</button><button class="pri" onclick="fin('${id}')">Done</button></span></div>`)}
+const stp=(id,i)=>{const s=DB.tasks.find(x=>x.id===id).steps[i];s.done=!s.done;save();detail(id)};
+function addStep(id){const t=$('#st').value.trim();if(!t)return;DB.tasks.find(x=>x.id===id).steps.push({t,d:$('#sd').value,done:false});save();detail(id)}
+function fin(id){const t=DB.tasks.find(x=>x.id===id),late=t.deadline<TODAY();
+ t.done=true;t.doneAt=TODAY();const pts=late?2:10+t.imp*2;DB.score+=pts;
+ DB.goals.forEach(g=>{});save();closeM();render()}
+function ext(id){const t=DB.tasks.find(x=>x.id===id),pen=5*(t.ext+1);
+ const n=prompt(`New deadline (YYYY-MM-DD). This costs ${pen} points.`,addD(3,t.deadline));
+ if(!n||!/^\d{4}-\d\d-\d\d$/.test(n)||n<=t.deadline)return alert('Pick a date later than the current deadline.');
+ t.deadline=n;t.ext++;DB.score-=pen;save();detail(id);render()}
+
+/* ---------- boot ---------- */
+if(CLOUD){firebase.initializeApp(CFG);fb=firebase;fb.auth().onAuthStateChanged(u=>{user=u;u?load():lock()})}
+else load();
+</script>
+</body>
+</html>
