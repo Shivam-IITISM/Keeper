@@ -137,12 +137,12 @@ function autoDeadline(w){
 const openT=ctx=>DB.tasks.filter(t=>!t.done&&(!ctx||t.ctx===ctx));
 
 /* ---------- views ---------- */
-const TABS=[['dash','◉  Dashboard'],['work','▣  Work'],['personal','◐  Personal'],['shared','⇄  Shared'],['trips','✈  Trips'],['ideas','✦  Ideas'],['learn','✎  Learning'],['goals','◎  Targets']];
+const TABS=[['dash','◉  Dashboard'],['work','▣  Work'],['personal','◐  Personal'],['shared','⇄  Shared'],['trips','✈  Trips'],['msgs','✉  Messages'],['ideas','✦  Ideas'],['learn','✎  Learning'],['goals','◎  Targets']];
 function render(fid){
- $('#app').innerHTML=`<nav aria-label="Main"><h1><span class="logo" aria-hidden="true">K</span>Keeper</h1>${TABS.map(([k,n])=>`<button class="${tab===k?'on':''}" ${tab===k?'aria-current="page"':''} onclick="go('${k}')">${n}</button>`).join('')}<div class="sp"></div>${CLOUD&&user?`<button class="out" onclick="profForm()" aria-label="Edit profile">👤 ${esc(PROF?.name||user.displayName||'Profile')}</button>`:''}<small class="mode ${CLOUD?'':'warn'}">${CLOUD?'☁ Cloud sync on · v5':'⚠ Local only · v5'}</small><small id="sync" class="mu" role="status" aria-live="polite" style="padding:6px 12px">Ready</small>${CLOUD?'<button class="out" onclick="logout()">Sign out</button>':''}</nav><main id="main" tabindex="-1">${VIEWS[tab]()}</main><button class="fab pri" onclick="wiz()" aria-label="Add job">+</button>`;
- if(fid){const e=$('#'+fid);e&&e.focus()}
+ $('#app').innerHTML=`<nav aria-label="Main"><h1><span class="logo" aria-hidden="true">K</span>Keeper</h1>${TABS.map(([k,n])=>`<button class="${tab===k?'on':''}" ${tab===k?'aria-current="page"':''} onclick="go('${k}')">${n}</button>`).join('')}<div class="sp"></div>${CLOUD&&user?`<button class="out" onclick="profForm()" aria-label="Edit profile">👤 ${esc(PROF?.name||user.displayName||'Profile')}</button>`:''}<small class="mode ${CLOUD?'':'warn'}">${CLOUD?'☁ Cloud sync on · v6':'⚠ Local only · v6'}</small><small id="sync" class="mu" role="status" aria-live="polite" style="padding:6px 12px">Ready</small>${CLOUD?'<button class="out" onclick="logout()">Sign out</button>':''}</nav><main id="main" tabindex="-1">${VIEWS[tab]()}</main><button class="fab pri" onclick="wiz()" aria-label="Add job">+</button>`;
+ if(fid){const e=$('#'+fid);if(e){e.focus();try{e.setSelectionRange(e.value.length,e.value.length)}catch(_){}}}
 }
-const go=k=>{tab=k;curTrip=null;render();$('#main').focus()};
+const go=k=>{tab=k;curTrip=null;if(k==='msgs'&&CLOUD)loadPeople();render();$('#main').focus()};
 function tcard(t){const d=diff(t.deadline),done=t.steps.filter(s=>s.done).length;
  return`<button class="t" onclick="detail('${t.id}')"><b>${esc(t.title)}</b><small><span class="${d<0?'late':''}">${d<0?Math.abs(d)+' days overdue':d===0?'due today':'due in '+d+' days'}</span>${t.steps.length?`<span>${done}/${t.steps.length} steps</span>`:''}${t.ext?`<span class="late">extended ×${t.ext}</span>`:''}</small></button>`}
 function matrix(ctx){
@@ -220,11 +220,11 @@ function ext(id){const t=DB.tasks.find(x=>x.id===id),pen=5*(t.ext+1);
  if(!n||!/^\d{4}-\d\d-\d\d$/.test(n)||n<=t.deadline)return alert('Pick a date later than the current deadline.');
  t.deadline=n;t.ext++;DB.score-=pen;save();detail(id);render()}
 
-/* ===== v5: profile, shared tasks + chat, trips ===== */
+/* ===== v6: profile, shared tasks + chat, trips ===== */
 const FS=()=>fb.firestore();let SH=[],SHERR='',unsubSH,curTrip=null,chatUn=null,PROF=null,LOCK=false,lastF;
-const VIEWS={dash,work:()=>matrix('work'),personal:()=>matrix('personal'),shared:sharedV,trips:tripsV,ideas,learn,goals};
+const VIEWS={dash,work:()=>matrix('work'),personal:()=>matrix('personal'),shared:sharedV,trips:tripsV,msgs:msgsV,ideas,learn,goals};
 async function ensureProfile(){const d=await FS().doc('profiles/'+user.uid).get();PROF=d.exists?d.data():null;
- if(unsubSH)unsubSH();
+ if(unsubSH)unsubSH();listenMore();
  unsubSH=FS().collection('shared').where('members','array-contains',user.uid).onSnapshot(s=>{SHERR='';SH=s.docs.map(d=>({id:d.id,...d.data()}));if(tab==='shared'&&!$('#m').classList.contains('on'))render()},e=>{SHERR=e.message;if(tab==='shared')render()});
  PROF?render():profForm(true)}
 function profForm(first){const p=PROF||{name:user.displayName||'',role:'',org:'',about:''};
@@ -258,30 +258,60 @@ async function shAdd(id){const e=$('#ie').value.trim();if(e)alert(await shInvite
 const shSend=async id=>{const i=$('#cm'),t=i.value.trim();if(!t)return;i.value='';await FS().collection('shared/'+id+'/msgs').add({uid:user.uid,name:PROF.name,text:t,t:Date.now()})};
 const shDone=(id,v)=>{FS().doc('shared/'+id).update({done:v});closeM()};
 const shDel=async id=>{if(confirm('Delete for everyone?')){await FS().doc('shared/'+id).delete();closeM()}};
+/* ===== v6: shared trips (members, assigned tasks, plan, chat) + direct messages ===== */
+let TR=[],TRERR='',unsubTR,unsubDM,DMS=[],PEOPLE=null,DMC=null;
+const live=()=>{const a=document.activeElement;if($('#m').classList.contains('on'))return;if(a&&/^(INPUT|TEXTAREA)$/.test(a.tagName)&&a.value&&a.type!=='checkbox')return;render(a&&a.id)};
+function listenMore(){
+ unsubTR&&unsubTR();unsubDM&&unsubDM();
+ unsubTR=FS().collection('trips').where('members','array-contains',user.uid).onSnapshot(s=>{TRERR='';TR=s.docs.map(d=>({id:d.id,...d.data()}));if(tab==='trips')live()},e=>{TRERR=e.message;if(tab==='trips')render()});
+ unsubDM=FS().collection('dms').where('members','array-contains',user.uid).onSnapshot(s=>{DMS=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.last||0)-(a.last||0));if(tab==='msgs')live()},e=>{});
+ loadPeople()}
+const loadPeople=()=>FS().collection('profiles').limit(300).get().then(s=>{PEOPLE=s.docs.map(d=>d.data());if(tab==='msgs')live()}).catch(()=>{});
+/* chat helpers */
+function chatModal(title,path){modal(`<h3>${title}</h3><div id="chat" class="chat" role="log" aria-live="polite" aria-label="Messages"></div><div class="row"><input id="cm" aria-label="Message" placeholder="Write a message…" onkeydown="if(event.key==='Enter')send('${path}')"><button class="pri" onclick="send('${path}')">Send</button></div><div class="row sp2" style="margin-top:12px"><span></span><button onclick="closeM()">Close</button></div>`);
+ chatUn=FS().collection(path).orderBy('t').onSnapshot(q=>{const c=$('#chat');if(!c)return;c.innerHTML=q.docs.map(d=>{const m=d.data();return`<p class="msg ${m.uid===user.uid?'me':''}"><b>${esc(m.name)}</b> ${esc(m.text)}</p>`}).join('')||'<span class="mu">No messages yet.</span>';c.scrollTop=c.scrollHeight})}
+const send=async p=>{const i=$('#cm'),t=i.value.trim();if(!t)return;i.value='';await FS().collection(p).add({uid:user.uid,name:PROF.name,text:t,t:Date.now()});
+ if(DMC&&p.startsWith('dms/'))FS().doc('dms/'+DMC.pid).set({members:DMC.pid.split('_'),names:DMC.names,last:Date.now(),lastText:t.slice(0,60)},{merge:true})};
+function dmOpen(o,on){const pid=[user.uid,o].sort().join('_');DMC={pid,names:{[user.uid]:PROF.name,[o]:on}};chatModal('Message '+esc(on),'dms/'+pid+'/msgs')}
+function msgsV(){if(!CLOUD)return'<div class="hd"><h2>Messages</h2></div><p class="mu">Sign in with Google to message people.</p>';
+ const q=(window._pq||'').toLowerCase(),list=(PEOPLE||[]).filter(p=>p.uid!==user.uid&&(!q||(p.name+' '+p.role+' '+p.org+' '+p.email).toLowerCase().includes(q))).slice(0,30);
+ const b=(u,n,s1,s2)=>`<button class="t" data-u="${u}" data-n="${esc(n)}" onclick="dmOpen(this.dataset.u,this.dataset.n)"><b>${esc(n)}</b><small><span>${esc(s1||'')}</span><span>${esc(s2||'')}</span></small></button>`;
+ return`<div class="hd"><h2>Messages</h2></div><div class="grid g2"><section class="card"><h3 style="margin-bottom:10px">Conversations</h3>${DMS.map(d=>{const o=d.members.find(u=>u!==user.uid);return b(o,d.names?.[o]||'Member',d.lastText)}).join('')||'<p class="mu">No conversations yet. Find someone.</p>'}</section>
+ <section class="card"><h3 style="margin-bottom:10px">Find people</h3><input id="pq" type="search" aria-label="Search people by name, role or email" placeholder="Search name, role, email" value="${esc(window._pq||'')}" oninput="window._pq=this.value;render('pq')">${list.map(p=>b(p.uid,p.name,p.role,p.org)).join('')||'<p class="mu">No matches.</p>'}</section></div>`}
 /* trips */
-const TL={docs:['Passport / ID','Visa / permits','Tickets','Hotel bookings','Travel insurance','Cards and some cash','Vaccination records'],pack:['Clothes for the weather','Chargers and power bank','Plug adapter','Medicines','Toiletries'],todo:['Set work auto-reply / handover','Arrange home and pets','Tell bank about travel','Download offline maps','Share itinerary with family']};
-const LBL={docs:'Documents',pack:'Packing',todo:'Before leaving',book:'Bookings'};
-const T=id=>DB.trips.find(x=>x.id===id);
-function tripsV(){const t=curTrip&&T(curTrip);if(t)return tripV(t);
- return`<div class="hd"><h2>Trips</h2></div><form class="card" onsubmit="tripNew(event)"><div class="grid g4"><div><label for="td">Destination</label><input id="td" required></div><div><label for="ts">Start</label><input id="ts" type="date" required value="${addD(30)}"></div><div><label for="te">End</label><input id="te" type="date" required value="${addD(34)}"></div><div><label for="tb">Budget</label><input id="tb" type="number" min="0" value="50000"></div></div><button class="pri">Plan trip</button></form><div class="grid g2" style="margin-top:14px">${DB.trips.map(x=>`<button class="card t" onclick="curTrip='${x.id}';render()"><b>${esc(x.dest)}</b><small><span>${x.start} → ${x.end}</span><span>${diff(x.start)>=0?'in '+diff(x.start)+' days':'started'}</span></small></button>`).join('')||'<p class="mu">No trips yet.</p>'}</div>`}
-function tripNew(e){e.preventDefault();const g=i=>$('#'+i).value;if(g('te')<g('ts'))return alert('End date must not be before the start.');
- const t={id:uid(),dest:g('td').trim(),start:g('ts'),end:g('te'),budget:+g('tb')||0,days:{},exp:[],lists:{book:[]}};for(const k in TL)t.lists[k]=TL[k].map(x=>({t:x,done:false}));
- DB.trips.push(t);curTrip=t.id;save();render()}
-function tripV(t){const spent=t.exp.reduce((s,x)=>s+x.a,0),pct=t.budget?Math.min(100,spent/t.budget*100):0,n=Math.min(30,diff(t.end)-diff(t.start)+1),days=Array.from({length:Math.max(1,n)},(_,i)=>addD(i,t.start));
- const list=k=>`<section class="card"><h3>${LBL[k]}</h3>${t.lists[k].map((x,i)=>`<div class="row sp2"><label class="row" style="color:var(--tx)"><input type="checkbox" ${x.done?'checked':''} onchange="tTog('${t.id}','${k}',${i})"><span>${esc(x.t)}</span></label><button aria-label="Remove ${esc(x.t)}" onclick="tDel('${t.id}','${k}',${i})" aria-label="Delete">✕</button></div>`).join('')}<div class="row"><input id="in_${k}" aria-label="Add to ${LBL[k]}" placeholder="${k==='book'?'e.g. Flight AI-101, ref ABC123':'Add item'}" onkeydown="if(event.key==='Enter')tAdd('${t.id}','${k}')"><button onclick="tAdd('${t.id}','${k}')">Add</button></div></section>`;
- return`<div class="hd"><h2>${esc(t.dest)}</h2><span class="row"><button onclick="curTrip=null;render()">← All trips</button><button onclick="if(confirm('Delete this trip?')){DB.trips=DB.trips.filter(x=>x.id!=='${t.id}');curTrip=null;save();render()}">Delete</button></span></div><p class="mu">${t.start} → ${t.end} · ${diff(t.start)>=0?diff(t.start)+' days to go':'trip started'}</p>
- <section class="card" style="margin:14px 0"><h3>Budget</h3><div class="row sp2"><span>${spent.toLocaleString()} spent of ${t.budget.toLocaleString()}</span><b class="${spent>t.budget?'late':''}">${(t.budget-spent).toLocaleString()} left</b></div><div class="bar" role="progressbar" aria-label="Budget used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><i style="width:${pct}%;background:${spent>t.budget?'var(--bad)':'var(--ok)'}"></i></div>${t.exp.map((x,i)=>`<div class="row sp2"><span>${esc(x.t)}</span><span class="row">${x.a.toLocaleString()}<button aria-label="Remove ${esc(x.t)}" onclick="T('${t.id}').exp.splice(${i},1);save();render()" aria-label="Delete">✕</button></span></div>`).join('')}<div class="row"><input id="xe" aria-label="Expense name" placeholder="Expense"><input id="xa" type="number" aria-label="Amount" placeholder="Amount" style="max-width:120px"><button onclick="tExp('${t.id}')">Add</button></div></section>
- <section class="card"><h3>Day-by-day plan</h3>${days.map(d=>`<div style="margin:12px 0"><b>${d}</b>${(t.days[d]||[]).map((x,i)=>`<div class="row sp2"><span>${esc(x)}</span><button aria-label="Remove ${esc(x)}" onclick="T('${t.id}').days['${d}'].splice(${i},1);save();render()" aria-label="Delete">✕</button></div>`).join('')}<div class="row"><input id="d_${d}" aria-label="Activity for ${d}" placeholder="Add activity" onkeydown="if(event.key==='Enter')tAct('${t.id}','${d}')"><button onclick="tAct('${t.id}','${d}')">Add</button></div></div>`).join('')}</section>
- <div class="grid g2" style="margin-top:14px">${['docs','pack','todo','book'].map(list).join('')}</div>`}
-const tTog=(id,k,i)=>{const x=T(id).lists[k][i];x.done=!x.done;save();render()};
-const tDel=(id,k,i)=>{T(id).lists[k].splice(i,1);save();render()};
-const tAdd=(id,k)=>{const v=$('#in_'+k).value.trim();if(!v)return;T(id).lists[k].push({t:v,done:false});save();render('in_'+k)};
-const tExp=id=>{const n=$('#xe').value.trim(),a=+$('#xa').value;if(!n||!a)return;T(id).exp.push({t:n,a});save();render('xe')};
-const tAct=(id,d)=>{const v=$('#d_'+d).value.trim();if(!v)return;const t=T(id);(t.days[d]=t.days[d]||[]).push(v);save();render('d_'+d)};
+const TL=['Passport / ID','Visa / permits','Tickets','Hotel bookings','Travel insurance','Cards and some cash','Chargers and power bank','Medicines','Set work auto-reply / handover','Tell bank about travel','Download offline maps'];
+const who=(t,a)=>!a||!a.length?'Everyone':a.map(u=>esc(t.names?.[u]||'Member')).join(', ');
+function tripsV(){if(!CLOUD)return'<div class="hd"><h2>Trips</h2></div><p class="mu">Sign in with Google to plan trips with others.</p>';
+ const t=curTrip&&TR.find(x=>x.id===curTrip);if(t)return tripV(t);
+ return`<div class="hd"><h2>Trips</h2></div>${TRERR?`<p class="err" role="alert">${esc(TRERR)} (publish the new Firestore rules)</p>`:''}<form class="card" onsubmit="tripNew(event)"><div class="grid g4"><div><label for="td">Destination</label><input id="td" required></div><div><label for="ts">Start</label><input id="ts" type="date" required value="${addD(30)}"></div><div><label for="te">End</label><input id="te" type="date" required value="${addD(34)}"></div><div><label for="tb">Budget</label><input id="tb" type="number" min="0" value="50000"></div></div><button class="pri">Plan trip</button></form><div class="grid g2" style="margin-top:14px">${TR.map(x=>`<button class="card t" onclick="curTrip='${x.id}';render()"><b>${esc(x.dest)}</b><small><span>${x.start} → ${x.end}</span><span>${diff(x.start)>=0?'in '+diff(x.start)+' days':'started'}</span><span>${x.members.length} people</span></small></button>`).join('')||'<p class="mu">No trips yet.</p>'}</div>`}
+async function tripNew(e){e.preventDefault();const g=i=>$('#'+i).value;if(g('te')<g('ts'))return alert('End date must not be before the start.');
+ const r=await FS().collection('trips').add({dest:g('td').trim(),start:g('ts'),end:g('te'),budget:+g('tb')||0,owner:user.uid,members:[user.uid],names:{[user.uid]:PROF.name},days:{},exp:[],book:[],tasks:TL.map(x=>({id:uid(),t:x,who:[],done:false})),created:Date.now()});curTrip=r.id;render()}
+function tripV(t){const spent=(t.exp||[]).reduce((s,x)=>s+x.a,0),pct=t.budget?Math.min(100,spent/t.budget*100):0,n=Math.min(30,diff(t.end)-diff(t.start)+1),days=Array.from({length:Math.max(1,n)},(_,i)=>addD(i,t.start)),id=t.id;
+ const mine=t.tasks.filter(x=>!x.done&&(!x.who.length||x.who.includes(user.uid)));
+ const row=x=>`<div class="row sp2"><label class="row" style="color:var(--tx)"><input type="checkbox" ${x.done?'checked':''} onchange="tTog('${id}','${x.id}')"><span>${esc(x.t)} <small class="mu">· ${who(t,x.who)}</small></span></label><button aria-label="Remove ${esc(x.t)}" onclick="tmut('${id}',x=>{x.tasks=x.tasks.filter(y=>y.id!=='${x.id}')})">✕</button></div>`;
+ const rm=(k,arr,i,txt)=>`<div class="row sp2"><span>${esc(txt)}</span><button aria-label="Remove ${esc(txt)}" onclick="tmut('${id}',x=>{x.${k}.splice(${i},1)})">✕</button></div>`;
+ return`<div class="hd"><h2>${esc(t.dest)}</h2><span class="row"><button onclick="curTrip=null;render()">← All trips</button><button class="pri" onclick="chatModal('${esc(t.dest)} group chat','trips/${id}/msgs')">Group chat</button>${t.owner===user.uid?`<button onclick="tDel('${id}')">Delete</button>`:''}</span></div>
+ <p class="mu">${t.start} → ${t.end} · ${diff(t.start)>=0?diff(t.start)+' days to go':'trip started'}</p>
+ <section class="card" style="margin:14px 0"><h3>Travellers (${t.members.length})</h3><p>${t.members.map(u=>esc(t.names?.[u]||'Member')).join(', ')}</p><div class="row"><input id="ti" type="email" aria-label="Invite by email" placeholder="Invite by email (they must have signed in once)"><button onclick="tInv('${id}')">Invite</button></div></section>
+ <section class="card"><h3 style="margin-bottom:8px">My tasks (${mine.length})</h3>${mine.map(row).join('')||'<span class="mu">Nothing assigned to you. 🎉</span>'}</section>
+ <section class="card" style="margin-top:14px"><h3 style="margin-bottom:8px">All tasks &amp; responsibilities</h3>${t.tasks.map(row).join('')}
+ <div style="margin-top:12px"><label for="tt">New task</label><input id="tt" placeholder="e.g. Book hotel" onkeydown="if(event.key==='Enter')tAddTask('${id}')"><fieldset style="border:0;padding:0;margin:0 0 10px"><legend class="mu" style="font-size:13px">Assign to (leave empty for everyone)</legend><div class="row" style="flex-wrap:wrap">${t.members.map(u=>`<label class="row" style="color:var(--tx);margin-right:10px"><input type="checkbox" name="as" value="${u}"> ${esc(t.names?.[u]||'Member')}</label>`).join('')}</div></fieldset><button class="pri" onclick="tAddTask('${id}')">Add task</button></div></section>
+ <section class="card" style="margin-top:14px"><h3>Day-by-day plan</h3>${days.map(d=>`<div style="margin:12px 0"><b>${d}</b>${((t.days||{})[d]||[]).map((x,i)=>`<div class="row sp2"><span>${esc(x.t)} <small class="mu">· ${esc(x.by)}</small></span><button aria-label="Remove ${esc(x.t)}" onclick="tmut('${id}',x=>{x.days['${d}'].splice(${i},1)})">✕</button></div>`).join('')}<div class="row"><input id="d_${d}" aria-label="Activity for ${d}" placeholder="Add activity" onkeydown="if(event.key==='Enter')tAct('${id}','${d}')"><button onclick="tAct('${id}','${d}')">Add</button></div></div>`).join('')}</section>
+ <div class="grid g2" style="margin-top:14px"><section class="card"><h3>Budget</h3><div class="row sp2"><span>${spent.toLocaleString()} of ${t.budget.toLocaleString()}</span><b class="${spent>t.budget?'late':''}">${(t.budget-spent).toLocaleString()} left</b></div><div class="bar" role="progressbar" aria-label="Budget used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><i style="width:${pct}%;background:${spent>t.budget?'var(--bad)':'var(--ok)'}"></i></div>${(t.exp||[]).map((x,i)=>rm('exp',0,i,x.t+' — '+x.a.toLocaleString()+' ('+x.by+')')).join('')}<div class="row"><input id="xe" aria-label="Expense name" placeholder="Expense"><input id="xa" type="number" aria-label="Amount" placeholder="Amount" style="max-width:110px"><button onclick="tExp('${id}')">Add</button></div></section>
+ <section class="card"><h3>Bookings</h3>${(t.book||[]).map((x,i)=>rm('book',0,i,x.t+' ('+x.by+')')).join('')}<div class="row"><input id="bk" aria-label="Booking" placeholder="e.g. Flight AI-101, ref ABC123" onkeydown="if(event.key==='Enter')tBook('${id}')"><button onclick="tBook('${id}')">Add</button></div></section></div>`}
+const tmut=(id,fn,fid)=>FS().runTransaction(async tx=>{const r=FS().doc('trips/'+id),d=await tx.get(r),x=d.data();fn(x);tx.set(r,x)}).then(()=>render(fid)).catch(e=>alert(e.message));
+const tTog=(id,k)=>tmut(id,x=>{const a=x.tasks.find(y=>y.id===k);a.done=!a.done});
+const tAddTask=id=>{const v=$('#tt').value.trim();if(!v)return;const w=[...document.querySelectorAll('input[name=as]:checked')].map(c=>c.value);tmut(id,x=>x.tasks.push({id:uid(),t:v,who:w,done:false}),'tt')};
+const tAct=(id,d)=>{const v=$('#d_'+d).value.trim();if(!v)return;tmut(id,x=>{x.days=x.days||{};(x.days[d]=x.days[d]||[]).push({t:v,by:PROF.name})},'d_'+d)};
+const tExp=id=>{const n=$('#xe').value.trim(),a=+$('#xa').value;if(!n||!a)return;tmut(id,x=>{(x.exp=x.exp||[]).push({t:n,a,by:PROF.name})},'xe')};
+const tBook=id=>{const v=$('#bk').value.trim();if(!v)return;tmut(id,x=>{(x.book=x.book||[]).push({t:v,by:PROF.name})},'bk')};
+async function tInv(id){const e=$('#ti').value.trim();if(!e)return;alert(await inviteTo('trips',id,e)?'Added to the trip.':'No Keeper user with that email yet. Ask them to sign in once.')}
+async function inviteTo(col,id,email){const q=await FS().collection('profiles').where('email','==',email.toLowerCase()).limit(1).get();if(q.empty)return false;const p=q.docs[0].data();await FS().doc(col+'/'+id).update({members:firebase.firestore.FieldValue.arrayUnion(p.uid),['names.'+p.uid]:p.name});return true}
+const tDel=async id=>{if(confirm('Delete this trip for everyone?')){curTrip=null;await FS().doc('trips/'+id).delete()}};
 
 /* ---------- boot ---------- */
 if(CLOUD&&typeof firebase==='undefined'){lock('Could not load Firebase. Check your internet or ad-blocker and refresh.')}
-else if(CLOUD){firebase.initializeApp(CFG);fb=firebase;fb.auth().onAuthStateChanged(u=>{user=u;if(u)load();else{DB=null;PROF=null;SH=[];unsubSH&&unsubSH();lock()}})}
+else if(CLOUD){firebase.initializeApp(CFG);fb=firebase;fb.auth().onAuthStateChanged(u=>{user=u;if(u)load();else{DB=null;PROF=null;SH=[];unsubSH&&unsubSH();unsubTR&&unsubTR();unsubDM&&unsubDM();TR=[];DMS=[];lock()}})}
 else load();
 </script>
 </body>
