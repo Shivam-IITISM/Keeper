@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0f1419;--p:#171e26;--p2:#1f2833;--ln:#2b3644;--tx:#e8edf2;--mu:#8b99a8;--ac:#f2c14e;--ok:#4cc38a;--bad:#ef6a5b;--bl:#5aa9e6;--r:14px}
-@media(prefers-color-scheme:light){:root{--bg:#f3f1ec;--p:#fff;--p2:#f6f4ef;--ln:#dcd8cf;--tx:#1b232c;--mu:#6b7683;--ac:#c98a00;--ok:#1f9d6a;--bad:#d6483a;--bl:#2f7fc1}}
+@media(prefers-color-scheme:light){:root{--bg:#f3f1ec;--p:#fff;--p2:#f6f4ef;--ln:#dcd8cf;--tx:#1b232c;--mu:#58626e;--ac:#c98a00;--ok:#1f9d6a;--bad:#d6483a;--bl:#2f7fc1}}
 *{box-sizing:border-box;margin:0}
 body{background:var(--bg);color:var(--tx);font:15px/1.5 Figtree,system-ui,sans-serif;min-height:100vh}
 h1,h2,h3,.big{font-family:'Bricolage Grotesque',Figtree,sans-serif;letter-spacing:-.01em}
@@ -66,12 +66,24 @@ nav button{border-radius:10px;transition:background .15s}nav button:hover{backgr
 .gbtn b{font:700 18px Arial;background:conic-gradient(#ea4335 0 25%,#fbbc05 0 50%,#34a853 0 75%,#4285f4 0);-webkit-background-clip:text;background-clip:text;color:transparent}
 .mode{font-size:11px;padding:6px 12px;color:var(--mu)}.mode.warn{color:var(--bad)}
 @media(max-width:760px){#app{flex-direction:column}nav{width:100%;height:auto;position:static;flex-direction:row;overflow:auto;border:0;border-bottom:1px solid var(--ln);padding:8px}nav h1,nav .sp{display:none}nav button{white-space:nowrap}.g2{grid-template-columns:1fr}main{padding:14px}}
+
+.skip{position:absolute;left:-999px}.skip:focus{left:12px;top:12px;z-index:30;background:var(--ac);color:#1a1405;padding:10px 14px;border-radius:8px}
+button,input:not([type=checkbox]),select{min-height:44px}input[type=checkbox]{width:22px!important;height:22px;margin:0}
+button.t,.card.t{display:block;width:100%;text-align:left;color:var(--tx)}main:focus{outline:none}
+.chat{height:190px;overflow:auto;background:var(--p2);border:1px solid var(--ln);border-radius:10px;padding:8px;margin:8px 0}.msg{margin:5px 0}.msg b{color:var(--ac)}.msg.me{text-align:right}
+.mob{display:none}nav .out{font-size:13px;text-align:left}
+@media(max-width:760px){nav{position:fixed;inset:auto 0 0 0;top:auto;width:100%;height:auto;flex-direction:row;gap:2px;overflow-x:auto;z-index:5;background:var(--p);border:0;border-top:1px solid var(--ln);padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+nav h1,nav .sp,nav .out,nav .mode,nav #sync{display:none}nav button{flex:0 0 auto;min-width:76px;text-align:center;font-size:12px;padding:8px 6px}nav button.on{box-shadow:inset 0 3px var(--ac)}
+main{padding:14px 14px 100px}.fab{bottom:88px;right:16px}.mob{display:inline-flex;gap:8px}.hd h2{font-size:24px}.g4{grid-template-columns:1fr 1fr}#m>div{padding:16px}}
+@media(min-width:1500px){main{max-width:1280px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <div id="lock"></div>
 <div id="app" hidden></div>
-<div id="m"><div id="mb"></div></div>
+<div id="m"><div id="mb" role="dialog" aria-modal="true" aria-label="Dialog"></div></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -109,7 +121,7 @@ async function google(){
 }
 async function load(){
  try{const raw=await readRaw();DB=raw?JSON.parse(raw.json):blank();if(!raw)await writeRaw({json:JSON.stringify(DB),t:Date.now()});
-  $('#lock').hidden=true;$('#app').hidden=false;render()}
+  DB.trips=DB.trips||[];$('#lock').hidden=true;$('#app').hidden=false;render();if(CLOUD)ensureProfile().catch(e=>{SHERR=e.message;render()})}
  catch(e){lock(esc(e.message||'Could not load data'))}
 }
 const logout=()=>fb.auth().signOut();
@@ -125,14 +137,14 @@ function autoDeadline(w){
 const openT=ctx=>DB.tasks.filter(t=>!t.done&&(!ctx||t.ctx===ctx));
 
 /* ---------- views ---------- */
-const TABS=[['dash','◉  Dashboard'],['work','▣  Work'],['personal','◐  Personal'],['ideas','✦  Ideas'],['learn','✎  Learning'],['goals','◎  Targets']];
-function render(){
- $('#app').innerHTML=`<nav><h1><span class="logo">K</span>Keeper</h1>${TABS.map(([k,n])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${n}</button>`).join('')}<div class="sp"></div>${CLOUD&&user?`<small class="mu" style="padding:6px 12px;word-break:break-word">${esc(user.displayName||user.email)}</small>`:''}<small class="mode ${CLOUD?'':'warn'}">${CLOUD?'☁ Cloud sync on · v4':'⚠ Local only · v4'}</small><small id="sync" class="mu" style="padding:6px 12px">Ready</small>${CLOUD?'<button onclick="logout()">Sign out</button>':''}</nav>
- <main>${({dash,work:()=>matrix('work'),personal:()=>matrix('personal'),ideas,learn,goals})[tab==='work'||tab==='personal'?tab:tab]()}</main>
- <button class="fab pri" onclick="wiz()" aria-label="Add job">+</button>`;
+const TABS=[['dash','◉  Dashboard'],['work','▣  Work'],['personal','◐  Personal'],['shared','⇄  Shared'],['trips','✈  Trips'],['ideas','✦  Ideas'],['learn','✎  Learning'],['goals','◎  Targets']];
+function render(fid){
+ $('#app').innerHTML=`<nav aria-label="Main"><h1><span class="logo" aria-hidden="true">K</span>Keeper</h1>${TABS.map(([k,n])=>`<button class="${tab===k?'on':''}" ${tab===k?'aria-current="page"':''} onclick="go('${k}')">${n}</button>`).join('')}<div class="sp"></div>${CLOUD&&user?`<button class="out" onclick="profForm()" aria-label="Edit profile">👤 ${esc(PROF?.name||user.displayName||'Profile')}</button>`:''}<small class="mode ${CLOUD?'':'warn'}">${CLOUD?'☁ Cloud sync on · v5':'⚠ Local only · v5'}</small><small id="sync" class="mu" role="status" aria-live="polite" style="padding:6px 12px">Ready</small>${CLOUD?'<button class="out" onclick="logout()">Sign out</button>':''}</nav><main id="main" tabindex="-1">${VIEWS[tab]()}</main><button class="fab pri" onclick="wiz()" aria-label="Add job">+</button>`;
+ if(fid){const e=$('#'+fid);e&&e.focus()}
 }
+const go=k=>{tab=k;curTrip=null;render();$('#main').focus()};
 function tcard(t){const d=diff(t.deadline),done=t.steps.filter(s=>s.done).length;
- return`<div class="t" onclick="detail('${t.id}')"><b>${esc(t.title)}</b><small><span class="${d<0?'late':''}">${d<0?Math.abs(d)+'d overdue':d===0?'due today':'in '+d+'d'}</span>${t.steps.length?`<span>${done}/${t.steps.length} steps</span>`:''}${t.ext?`<span class="late">extended ×${t.ext}</span>`:''}</small></div>`}
+ return`<button class="t" onclick="detail('${t.id}')"><b>${esc(t.title)}</b><small><span class="${d<0?'late':''}">${d<0?Math.abs(d)+' days overdue':d===0?'due today':'due in '+d+' days'}</span>${t.steps.length?`<span>${done}/${t.steps.length} steps</span>`:''}${t.ext?`<span class="late">extended ×${t.ext}</span>`:''}</small></button>`}
 function matrix(ctx){
  const ts=openT(ctx).sort((a,b)=>a.deadline.localeCompare(b.deadline));
  return`<div class="hd"><h2>${ctx==='work'?'At work':'Personal'}</h2><span class="mu">${ts.length} open</span></div><div class="grid g2">${[1,2,3,4].map(n=>`<div class="card q q${n}"><h3>${QN[n][0]}</h3><small>${QN[n][1]}</small>${ts.filter(t=>quad(t)===n).map(tcard).join('')||'<span class="mu">Nothing here.</span>'}</div>`).join('')}</div>`}
@@ -150,7 +162,7 @@ function dash(){
  const col=(a,b)=>a>=b?'var(--ok)':'var(--bad)';
  const mom=mo[cm]-(cm?mo[cm-1]:pm[11]);
  const gl=DB.goals.filter(g=>g.period==='month'||g.period==='year').map(g=>`<div style="margin-bottom:10px"><div class="row sp2"><span>${esc(g.title)} <span class="mu">(${g.period})</span></span><span class="mu">${g.progress}/${g.target}</span></div><div class="bar"><i style="width:${Math.min(100,g.progress/g.target*100)}%"></i></div></div>`).join('')||'<span class="mu">Set a monthly or yearly target in Targets.</span>';
- return`<div class="hd"><h2>Today</h2></div>
+ return`<div class="hd"><h2>Today</h2><span class="mob">${CLOUD?'<button onclick="profForm()">Profile</button> <button onclick="logout()">Sign out</button>':''}</span></div>
  <div class="grid g4"><div class="card stat"><div class="big">${DB.score}</div><span>discipline score</span></div><div class="card stat"><div class="big">${rate}%</div><span>done on time</span></div><div class="card stat"><div class="big ${od?'late':''}">${od}</div><span>overdue</span></div><div class="card stat"><div class="big">${done.filter(t=>t.doneAt.startsWith(m)).length}</div><span>finished this month</span></div></div>
  <div class="grid g2" style="margin-top:14px"><div class="card"><h3 style="margin-bottom:10px">Do these first</h3>${focus.map(tcard).join('')||'<span class="mu">Nothing open. Tap + when something comes in.</span>'}</div>
  <div class="card"><h3 style="margin-bottom:10px">Targets</h3>${gl}</div></div>
@@ -160,9 +172,9 @@ function dash(){
  <div><span class="mu">On-time rate vs ${y-1}</span><div class="big" style="font-size:22px;color:${R1===null||R0===null?'var(--mu)':col(R1,R0)}">${R1===null||R0===null?'not enough data':dl(R1,R0,' pts')}</div><span class="mu">${R1??'–'}% vs ${R0??'–'}%</span></div>
  <div><span class="mu">This month vs last month</span><div class="big" style="font-size:22px;color:${mom>=0?'var(--ok)':'var(--bad)'}">${mom>=0?'+':''}${mom}</div><span class="mu">${mo[cm]} finished so far</span></div></div>
  <div class="chart">${mo.map((v,i)=>`<div><div style="display:flex;gap:2px;align-items:flex-end;height:96px"><i style="flex:1;height:${pm[i]/mx*90}px;background:var(--mu);opacity:.5"></i><i style="flex:1;height:${v/mx*90}px"></i></div>${'JFMAMJJASOND'[i]}<br>${pm[i]}→${v}</div>`).join('')}</div></div>`}
-function ideas(){return`<div class="hd"><h2>Ideas</h2></div><div class="card"><div class="row"><input id="ni" placeholder="Drop an idea before it escapes…" onkeydown="if(event.key==='Enter')addIdea()"><button class="pri" onclick="addIdea()">Save</button></div></div><div style="margin-top:14px">${DB.ideas.map(i=>`<div class="card row sp2" style="margin-bottom:8px"><span>${esc(i.t)}</span><span class="row"><button onclick="wiz('${i.id}')">Make it a job</button><button onclick="DB.ideas=DB.ideas.filter(x=>x.id!=='${i.id}');save();render()">✕</button></span></div>`).join('')||'<p class="mu">No ideas parked yet.</p>'}</div>`}
-function learn(){return`<div class="hd"><h2>Learning</h2></div><div class="card"><div class="row"><input id="nl" placeholder="Something to learn…" onkeydown="if(event.key==='Enter')addLearn()"><button class="pri" onclick="addLearn()">Add</button></div></div><div style="margin-top:14px">${DB.learn.map(l=>`<div class="card row sp2" style="margin-bottom:8px"><label class="row" style="color:var(--tx);font-size:15px"><input type="checkbox" style="width:auto" ${l.done?'checked':''} onchange="tl('${l.id}')"><span style="${l.done?'text-decoration:line-through;opacity:.6':''}">${esc(l.t)}</span></label><span class="mu">${l.from?'for: '+esc(l.from):''}</span></div>`).join('')||'<p class="mu">Learning needs from your job plans will show up here.</p>'}</div>`}
-function goals(){return`<div class="hd"><h2>Targets</h2></div><div class="card"><div class="row"><input id="gt" placeholder="Target, e.g. Finish 8 paper sections"><input id="gn" type="number" min="1" value="5" style="max-width:80px"><select id="gp" style="max-width:110px"><option value="month">Month</option><option value="year">Year</option></select><button class="pri" onclick="addGoal()">Add</button></div></div><div style="margin-top:14px">${DB.goals.map(g=>`<div class="card" style="margin-bottom:8px"><div class="row sp2"><b>${esc(g.title)} <span class="mu">(${g.period})</span></b><span class="row"><button onclick="gp('${g.id}',-1)">−</button><b>${g.progress}/${g.target}</b><button onclick="gp('${g.id}',1)">+</button><button onclick="DB.goals=DB.goals.filter(x=>x.id!=='${g.id}');save();render()">✕</button></span></div><div class="bar"><i style="width:${Math.min(100,g.progress/g.target*100)}%"></i></div></div>`).join('')||'<p class="mu">No targets yet.</p>'}</div>`}
+function ideas(){return`<div class="hd"><h2>Ideas</h2></div><div class="card"><div class="row"><input id="ni" aria-label="Drop an idea before it escapes…" placeholder="Drop an idea before it escapes…" onkeydown="if(event.key==='Enter')addIdea()"><button class="pri" onclick="addIdea()">Save</button></div></div><div style="margin-top:14px">${DB.ideas.map(i=>`<div class="card row sp2" style="margin-bottom:8px"><span>${esc(i.t)}</span><span class="row"><button onclick="wiz('${i.id}')">Make it a job</button><button onclick="DB.ideas=DB.ideas.filter(x=>x.id!=='${i.id}');save();render()" aria-label="Delete">✕</button></span></div>`).join('')||'<p class="mu">No ideas parked yet.</p>'}</div>`}
+function learn(){return`<div class="hd"><h2>Learning</h2></div><div class="card"><div class="row"><input id="nl" aria-label="Something to learn…" placeholder="Something to learn…" onkeydown="if(event.key==='Enter')addLearn()"><button class="pri" onclick="addLearn()">Add</button></div></div><div style="margin-top:14px">${DB.learn.map(l=>`<div class="card row sp2" style="margin-bottom:8px"><label class="row" style="color:var(--tx);font-size:15px"><input type="checkbox" style="width:auto" ${l.done?'checked':''} onchange="tl('${l.id}')"><span style="${l.done?'text-decoration:line-through;opacity:.6':''}">${esc(l.t)}</span></label><span class="mu">${l.from?'for: '+esc(l.from):''}</span></div>`).join('')||'<p class="mu">Learning needs from your job plans will show up here.</p>'}</div>`}
+function goals(){return`<div class="hd"><h2>Targets</h2></div><div class="card"><div class="row"><input id="gt" aria-label="Target, e.g. Finish 8 paper sections" placeholder="Target, e.g. Finish 8 paper sections"><input id="gn" aria-label="Target number" type="number" min="1" value="5" style="max-width:80px"><select id="gp" aria-label="Period" style="max-width:110px"><option value="month">Month</option><option value="year">Year</option></select><button class="pri" onclick="addGoal()">Add</button></div></div><div style="margin-top:14px">${DB.goals.map(g=>`<div class="card" style="margin-bottom:8px"><div class="row sp2"><b>${esc(g.title)} <span class="mu">(${g.period})</span></b><span class="row"><button onclick="gp('${g.id}',-1)">−</button><b>${g.progress}/${g.target}</b><button onclick="gp('${g.id}',1)">+</button><button onclick="DB.goals=DB.goals.filter(x=>x.id!=='${g.id}');save();render()" aria-label="Delete">✕</button></span></div><div class="bar"><i style="width:${Math.min(100,g.progress/g.target*100)}%"></i></div></div>`).join('')||'<p class="mu">No targets yet.</p>'}</div>`}
 
 /* ---------- actions ---------- */
 const addIdea=()=>{const v=$('#ni').value.trim();if(!v)return;DB.ideas.unshift({id:uid(),t:v});save();render()};
@@ -170,17 +182,19 @@ const addLearn=()=>{const v=$('#nl').value.trim();if(!v)return;DB.learn.unshift(
 const tl=id=>{const l=DB.learn.find(x=>x.id===id);l.done=!l.done;save();render()};
 const addGoal=()=>{const t=$('#gt').value.trim();if(!t)return;DB.goals.push({id:uid(),title:t,target:+$('#gn').value||1,period:$('#gp').value,progress:0});save();render()};
 const gp=(id,n)=>{const g=DB.goals.find(x=>x.id===id);g.progress=Math.max(0,g.progress+n);save();render()};
-const modal=h=>{$('#mb').innerHTML=h;$('#m').classList.add('on')},closeM=()=>$('#m').classList.remove('on');
-$('#m').addEventListener('click',e=>{if(e.target.id==='m')closeM()});
-const pk=(k,n)=>`<div class="pick">${[1,2,3,4,5].map(v=>`<button class="${W[k]===v?'on':''}" onclick="W.${k}=${v};wizR()">${v}</button>`).join('')}</div>`;
+const modal=(h,lock)=>{LOCK=!!lock;const o=$('#m').classList.contains('on');if(!o)lastF=document.activeElement;$('#mb').innerHTML=h;$('#m').classList.add('on');const f=$('#mb').querySelector('input:not([type=checkbox]),textarea,button');f&&f.focus()},
+closeM=()=>{if(chatUn){chatUn();chatUn=null}$('#m').classList.remove('on');lastF&&lastF.focus&&lastF.focus()};
+$('#m').addEventListener('click',e=>{if(e.target.id==='m'&&!LOCK)closeM()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#m').classList.contains('on')&&!LOCK)closeM()});
+const pk=(k,n)=>`<div class="pick">${[1,2,3,4,5].map(v=>`<button aria-pressed="${W[k]===v}" class="${W[k]===v?'on':''}" onclick="W.${k}=${v};wizR()">${v}</button>`).join('')}</div>`;
 
 /* ---------- add-job wizard (3 short stages) ---------- */
 let W;
 function wiz(ideaId){const i=DB.ideas.find(x=>x.id===ideaId);W={s:1,title:i?i.t:'',ctx:tab==='personal'?'personal':'work',imp:3,urg:3,eff:2,learn:'',idea:ideaId};wizR()}
 function wizR(){
  const f=document.activeElement;if(W.s===1&&$('#wt'))W.title=$('#wt').value,W.learn=$('#wl').value;
- if(W.s===1)return modal(`<h3>What is it? <span class="mu">1/3</span></h3><label>Job</label><input id="wt" value="${esc(W.title)}" autofocus><label>Where does it belong?</label><div class="pick"><button class="${W.ctx==='work'?'on':''}" onclick="W.ctx='work';wizR()">Work</button><button class="${W.ctx==='personal'?'on':''}" onclick="W.ctx='personal';wizR()">Personal</button></div><label>Need to learn something for it? (optional)</label><input id="wl" value="${esc(W.learn)}"><div class="row sp2"><button onclick="closeM()">Cancel</button><button class="pri" onclick="W.title=$('#wt').value.trim();W.learn=$('#wl').value.trim();if(W.title){W.s=2;wizR()}">Next</button></div>`);
- if(W.s===2)return modal(`<h3>How much does it matter? <span class="mu">2/3</span></h3><label>Importance — does it move my real goals? (1 low – 5 critical)</label>${pk('imp')}<label>Urgency — what happens if it waits a week? (1 nothing – 5 someone is blocked)</label>${pk('urg')}<label>Effort in hours (total)</label><input id="we" type="number" min="1" value="${W.eff}" onchange="W.eff=+this.value||1"><div class="row sp2"><button onclick="W.s=1;wizR()">Back</button><button class="pri" onclick="W.eff=+$('#we').value||1;W.s=3;wizR()">Next</button></div>`);
+ if(W.s===1)return modal(`<h3>What is it? <span class="mu">1/3</span></h3><label for="wt">Job</label><input id="wt" value="${esc(W.title)}" autofocus><label>Where does it belong?</label><div class="pick"><button aria-pressed="${W.ctx==='work'}" class="${W.ctx==='work'?'on':''}" onclick="W.ctx='work';wizR()">Work</button><button aria-pressed="${W.ctx==='personal'}" class="${W.ctx==='personal'?'on':''}" onclick="W.ctx='personal';wizR()">Personal</button></div><label for="wl">Need to learn something for it? (optional)</label><input id="wl" value="${esc(W.learn)}"><div class="row sp2"><button onclick="closeM()">Cancel</button><button class="pri" onclick="W.title=$('#wt').value.trim();W.learn=$('#wl').value.trim();if(W.title){W.s=2;wizR()}">Next</button></div>`);
+ if(W.s===2)return modal(`<h3>How much does it matter? <span class="mu">2/3</span></h3><label>Importance — does it move my real goals? (1 low – 5 critical)</label>${pk('imp')}<label>Urgency — what happens if it waits a week? (1 nothing – 5 someone is blocked)</label>${pk('urg')}<label for="we">Effort in hours (total)</label><input id="we" type="number" min="1" value="${W.eff}" onchange="W.eff=+this.value||1"><div class="row sp2"><button onclick="W.s=1;wizR()">Back</button><button class="pri" onclick="W.eff=+$('#we').value||1;W.s=3;wizR()">Next</button></div>`);
  W.dl=autoDeadline(W);const q=quad(W);
  modal(`<h3>Your deadline <span class="mu">3/3</span></h3><p><b>${esc(W.title)}</b></p><p class="mu" style="margin:8px 0">Lands in <b style="color:var(--ac)">${QN[q][0]}</b> (${W.ctx}).</p><div class="card stat" style="margin:12px 0"><div class="big">${W.dl}</div><span>${diff(W.dl)} days from today. Extending it later costs points.</span></div><div class="row sp2"><button onclick="W.s=2;wizR()">Back</button><button class="pri" onclick="commit()">I commit</button></div>`)}
 function commit(){
@@ -194,7 +208,7 @@ function detail(id){const t=DB.tasks.find(x=>x.id===id),d=diff(t.deadline);
  modal(`<h3>${esc(t.title)}</h3><p class="${d<0?'late':'mu'}">Due ${t.deadline} · ${d<0?Math.abs(d)+' days overdue':d+' days left'} · ${QN[quad(t)][0]}</p>
  <h4 style="margin:14px 0 6px">Plan: internal targets</h4>
  ${t.steps.map((s,i)=>`<div class="row sp2" style="margin-bottom:6px"><label class="row" style="color:var(--tx)"><input type="checkbox" style="width:auto" ${s.done?'checked':''} onchange="stp('${id}',${i})"><span style="${s.done?'text-decoration:line-through;opacity:.6':''}">${esc(s.t)}</span></label><span class="mu ${!s.done&&diff(s.d)<0?'late':''}">${s.d}</span></div>`).join('')||'<p class="mu">Break it down so the deadline is believable.</p>'}
- <div class="row" style="margin-top:8px"><input id="st" placeholder="Step"><input id="sd" type="date" max="${t.deadline}" value="${t.deadline}" style="max-width:150px"><button onclick="addStep('${id}')">Add</button></div>
+ <div class="row" style="margin-top:8px"><input id="st" aria-label="Step" placeholder="Step"><input id="sd" aria-label="Step date" type="date" max="${t.deadline}" value="${t.deadline}" style="max-width:150px"><button onclick="addStep('${id}')">Add</button></div>
  <div class="row sp2" style="margin-top:16px"><span class="row"><button onclick="ext('${id}')">Need more time</button><button onclick="if(confirm('Delete this job?')){DB.tasks=DB.tasks.filter(x=>x.id!=='${id}');save();closeM();render()}">Delete</button></span><span class="row"><button onclick="closeM();render()">Close</button><button class="pri" onclick="fin('${id}')">Done</button></span></div>`)}
 const stp=(id,i)=>{const s=DB.tasks.find(x=>x.id===id).steps[i];s.done=!s.done;save();detail(id)};
 function addStep(id){const t=$('#st').value.trim();if(!t)return;DB.tasks.find(x=>x.id===id).steps.push({t,d:$('#sd').value,done:false});save();detail(id)}
@@ -206,9 +220,68 @@ function ext(id){const t=DB.tasks.find(x=>x.id===id),pen=5*(t.ext+1);
  if(!n||!/^\d{4}-\d\d-\d\d$/.test(n)||n<=t.deadline)return alert('Pick a date later than the current deadline.');
  t.deadline=n;t.ext++;DB.score-=pen;save();detail(id);render()}
 
+/* ===== v5: profile, shared tasks + chat, trips ===== */
+const FS=()=>fb.firestore();let SH=[],SHERR='',unsubSH,curTrip=null,chatUn=null,PROF=null,LOCK=false,lastF;
+const VIEWS={dash,work:()=>matrix('work'),personal:()=>matrix('personal'),shared:sharedV,trips:tripsV,ideas,learn,goals};
+async function ensureProfile(){const d=await FS().doc('profiles/'+user.uid).get();PROF=d.exists?d.data():null;
+ if(unsubSH)unsubSH();
+ unsubSH=FS().collection('shared').where('members','array-contains',user.uid).onSnapshot(s=>{SHERR='';SH=s.docs.map(d=>({id:d.id,...d.data()}));if(tab==='shared'&&!$('#m').classList.contains('on'))render()},e=>{SHERR=e.message;if(tab==='shared')render()});
+ PROF?render():profForm(true)}
+function profForm(first){const p=PROF||{name:user.displayName||'',role:'',org:'',about:''};
+ modal(`<h3>${first?'Welcome! Tell us about you':'Your profile'}</h3><p class="mu">Teammates see this when you share tasks.</p>
+ <label for="pn">Full name</label><input id="pn" value="${esc(p.name)}" autocomplete="name">
+ <label for="pr">Role / designation</label><input id="pr" value="${esc(p.role)}" placeholder="e.g. Research engineer">
+ <label for="po">Organisation</label><input id="po" value="${esc(p.org)}">
+ <label for="pa">What do you work on? (optional)</label><textarea id="pa" rows="2">${esc(p.about)}</textarea>
+ <div class="row sp2">${first?'<span></span>':'<button onclick="closeM()">Cancel</button>'}<button class="pri" onclick="saveProf()">Save profile</button></div>`,first)}
+async function saveProf(){const n=$('#pn').value.trim(),r=$('#pr').value.trim();if(!n||!r)return alert('Name and role are required.');
+ PROF={uid:user.uid,name:n,role:r,org:$('#po').value.trim(),about:$('#pa').value.trim(),email:(user.email||'').toLowerCase(),photo:user.photoURL||''};
+ await FS().doc('profiles/'+user.uid).set(PROF);closeM();render()}
+/* shared */
+function sharedV(){if(!CLOUD)return'<div class="hd"><h2>Shared</h2></div><p class="mu">Sign in with Google (cloud mode) to share tasks.</p>';
+ return`<div class="hd"><h2>Shared tasks</h2><button class="pri" onclick="shNew()">+ New shared task</button></div>${SHERR?`<p class="err" role="alert">${esc(SHERR)} (publish the new Firestore rules)</p>`:''}<div class="grid g2">${SH.map(s=>`<button class="card t" onclick="shOpen('${s.id}')"><b>${esc(s.title)}</b><small><span>${s.done?'Done':'Open'}</span><span>due ${s.deadline||'—'}</span><span>${s.members.length} people</span></small></button>`).join('')||'<p class="mu">Nothing shared yet.</p>'}</div>`}
+function shNew(){modal(`<h3>New shared task</h3><label for="st1">What needs doing?</label><input id="st1"><label for="sd1">Deadline</label><input id="sd1" type="date" value="${addD(7)}"><label for="si1">Invite by email (comma separated; they must have signed in once)</label><input id="si1" aria-label="a@x.com, b@y.com" placeholder="a@x.com, b@y.com"><div class="row sp2"><button onclick="closeM()">Cancel</button><button class="pri" onclick="shCreate()">Create</button></div>`)}
+async function shCreate(){const t=$('#st1').value.trim();if(!t)return;
+ const r=await FS().collection('shared').add({title:t,deadline:$('#sd1').value,owner:user.uid,members:[user.uid],names:{[user.uid]:PROF.name},done:false,created:Date.now()});
+ const bad=[];for(const e of $('#si1').value.split(',').map(x=>x.trim()).filter(Boolean))if(!await shInvite(r.id,e))bad.push(e);
+ closeM();if(bad.length)alert('Not found (ask them to sign in to Keeper first): '+bad.join(', '))}
+async function shInvite(id,email){const q=await FS().collection('profiles').where('email','==',email.toLowerCase()).limit(1).get();if(q.empty)return false;const p=q.docs[0].data();
+ await FS().doc('shared/'+id).update({members:firebase.firestore.FieldValue.arrayUnion(p.uid),['names.'+p.uid]:p.name});return true}
+function shOpen(id){const s=SH.find(x=>x.id===id);if(!s)return;
+ modal(`<h3>${esc(s.title)}</h3><p class="mu">Due ${s.deadline||'—'} · ${s.done?'Done':'Open'}</p><p><b>People:</b> ${s.members.map(u=>esc(s.names?.[u]||'Member')).join(', ')}</p>
+ <div class="row" style="margin:8px 0"><input id="ie" type="email" aria-label="Invite by email" placeholder="Invite by email"><button onclick="shAdd('${id}')">Invite</button></div>
+ <div id="chat" class="chat" role="log" aria-live="polite" aria-label="Messages"></div>
+ <div class="row"><input id="cm" aria-label="Message" placeholder="Write a message…" onkeydown="if(event.key==='Enter')shSend('${id}')"><button class="pri" onclick="shSend('${id}')">Send</button></div>
+ <div class="row sp2" style="margin-top:14px"><button onclick="shDone('${id}',${!s.done})">${s.done?'Reopen':'Mark done'}</button><span class="row">${s.owner===user.uid?`<button onclick="shDel('${id}')">Delete</button>`:''}<button onclick="closeM()">Close</button></span></div>`);
+ chatUn=FS().collection('shared/'+id+'/msgs').orderBy('t').onSnapshot(q=>{const c=$('#chat');if(!c)return;c.innerHTML=q.docs.map(d=>{const m=d.data();return`<p class="msg ${m.uid===user.uid?'me':''}"><b>${esc(m.name)}</b> ${esc(m.text)}</p>`}).join('')||'<span class="mu">No messages yet.</span>';c.scrollTop=c.scrollHeight})}
+async function shAdd(id){const e=$('#ie').value.trim();if(e)alert(await shInvite(id,e)?'Added. Reopen the task to see them.':'No Keeper user with that email. Ask them to sign in once.')}
+const shSend=async id=>{const i=$('#cm'),t=i.value.trim();if(!t)return;i.value='';await FS().collection('shared/'+id+'/msgs').add({uid:user.uid,name:PROF.name,text:t,t:Date.now()})};
+const shDone=(id,v)=>{FS().doc('shared/'+id).update({done:v});closeM()};
+const shDel=async id=>{if(confirm('Delete for everyone?')){await FS().doc('shared/'+id).delete();closeM()}};
+/* trips */
+const TL={docs:['Passport / ID','Visa / permits','Tickets','Hotel bookings','Travel insurance','Cards and some cash','Vaccination records'],pack:['Clothes for the weather','Chargers and power bank','Plug adapter','Medicines','Toiletries'],todo:['Set work auto-reply / handover','Arrange home and pets','Tell bank about travel','Download offline maps','Share itinerary with family']};
+const LBL={docs:'Documents',pack:'Packing',todo:'Before leaving',book:'Bookings'};
+const T=id=>DB.trips.find(x=>x.id===id);
+function tripsV(){const t=curTrip&&T(curTrip);if(t)return tripV(t);
+ return`<div class="hd"><h2>Trips</h2></div><form class="card" onsubmit="tripNew(event)"><div class="grid g4"><div><label for="td">Destination</label><input id="td" required></div><div><label for="ts">Start</label><input id="ts" type="date" required value="${addD(30)}"></div><div><label for="te">End</label><input id="te" type="date" required value="${addD(34)}"></div><div><label for="tb">Budget</label><input id="tb" type="number" min="0" value="50000"></div></div><button class="pri">Plan trip</button></form><div class="grid g2" style="margin-top:14px">${DB.trips.map(x=>`<button class="card t" onclick="curTrip='${x.id}';render()"><b>${esc(x.dest)}</b><small><span>${x.start} → ${x.end}</span><span>${diff(x.start)>=0?'in '+diff(x.start)+' days':'started'}</span></small></button>`).join('')||'<p class="mu">No trips yet.</p>'}</div>`}
+function tripNew(e){e.preventDefault();const g=i=>$('#'+i).value;if(g('te')<g('ts'))return alert('End date must not be before the start.');
+ const t={id:uid(),dest:g('td').trim(),start:g('ts'),end:g('te'),budget:+g('tb')||0,days:{},exp:[],lists:{book:[]}};for(const k in TL)t.lists[k]=TL[k].map(x=>({t:x,done:false}));
+ DB.trips.push(t);curTrip=t.id;save();render()}
+function tripV(t){const spent=t.exp.reduce((s,x)=>s+x.a,0),pct=t.budget?Math.min(100,spent/t.budget*100):0,n=Math.min(30,diff(t.end)-diff(t.start)+1),days=Array.from({length:Math.max(1,n)},(_,i)=>addD(i,t.start));
+ const list=k=>`<section class="card"><h3>${LBL[k]}</h3>${t.lists[k].map((x,i)=>`<div class="row sp2"><label class="row" style="color:var(--tx)"><input type="checkbox" ${x.done?'checked':''} onchange="tTog('${t.id}','${k}',${i})"><span>${esc(x.t)}</span></label><button aria-label="Remove ${esc(x.t)}" onclick="tDel('${t.id}','${k}',${i})" aria-label="Delete">✕</button></div>`).join('')}<div class="row"><input id="in_${k}" aria-label="Add to ${LBL[k]}" placeholder="${k==='book'?'e.g. Flight AI-101, ref ABC123':'Add item'}" onkeydown="if(event.key==='Enter')tAdd('${t.id}','${k}')"><button onclick="tAdd('${t.id}','${k}')">Add</button></div></section>`;
+ return`<div class="hd"><h2>${esc(t.dest)}</h2><span class="row"><button onclick="curTrip=null;render()">← All trips</button><button onclick="if(confirm('Delete this trip?')){DB.trips=DB.trips.filter(x=>x.id!=='${t.id}');curTrip=null;save();render()}">Delete</button></span></div><p class="mu">${t.start} → ${t.end} · ${diff(t.start)>=0?diff(t.start)+' days to go':'trip started'}</p>
+ <section class="card" style="margin:14px 0"><h3>Budget</h3><div class="row sp2"><span>${spent.toLocaleString()} spent of ${t.budget.toLocaleString()}</span><b class="${spent>t.budget?'late':''}">${(t.budget-spent).toLocaleString()} left</b></div><div class="bar" role="progressbar" aria-label="Budget used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><i style="width:${pct}%;background:${spent>t.budget?'var(--bad)':'var(--ok)'}"></i></div>${t.exp.map((x,i)=>`<div class="row sp2"><span>${esc(x.t)}</span><span class="row">${x.a.toLocaleString()}<button aria-label="Remove ${esc(x.t)}" onclick="T('${t.id}').exp.splice(${i},1);save();render()" aria-label="Delete">✕</button></span></div>`).join('')}<div class="row"><input id="xe" aria-label="Expense name" placeholder="Expense"><input id="xa" type="number" aria-label="Amount" placeholder="Amount" style="max-width:120px"><button onclick="tExp('${t.id}')">Add</button></div></section>
+ <section class="card"><h3>Day-by-day plan</h3>${days.map(d=>`<div style="margin:12px 0"><b>${d}</b>${(t.days[d]||[]).map((x,i)=>`<div class="row sp2"><span>${esc(x)}</span><button aria-label="Remove ${esc(x)}" onclick="T('${t.id}').days['${d}'].splice(${i},1);save();render()" aria-label="Delete">✕</button></div>`).join('')}<div class="row"><input id="d_${d}" aria-label="Activity for ${d}" placeholder="Add activity" onkeydown="if(event.key==='Enter')tAct('${t.id}','${d}')"><button onclick="tAct('${t.id}','${d}')">Add</button></div></div>`).join('')}</section>
+ <div class="grid g2" style="margin-top:14px">${['docs','pack','todo','book'].map(list).join('')}</div>`}
+const tTog=(id,k,i)=>{const x=T(id).lists[k][i];x.done=!x.done;save();render()};
+const tDel=(id,k,i)=>{T(id).lists[k].splice(i,1);save();render()};
+const tAdd=(id,k)=>{const v=$('#in_'+k).value.trim();if(!v)return;T(id).lists[k].push({t:v,done:false});save();render('in_'+k)};
+const tExp=id=>{const n=$('#xe').value.trim(),a=+$('#xa').value;if(!n||!a)return;T(id).exp.push({t:n,a});save();render('xe')};
+const tAct=(id,d)=>{const v=$('#d_'+d).value.trim();if(!v)return;const t=T(id);(t.days[d]=t.days[d]||[]).push(v);save();render('d_'+d)};
+
 /* ---------- boot ---------- */
 if(CLOUD&&typeof firebase==='undefined'){lock('Could not load Firebase. Check your internet or ad-blocker and refresh.')}
-else if(CLOUD){firebase.initializeApp(CFG);fb=firebase;fb.auth().onAuthStateChanged(u=>{user=u;if(u)load();else{DB=null;lock()}})}
+else if(CLOUD){firebase.initializeApp(CFG);fb=firebase;fb.auth().onAuthStateChanged(u=>{user=u;if(u)load();else{DB=null;PROF=null;SH=[];unsubSH&&unsubSH();lock()}})}
 else load();
 </script>
 </body>
