@@ -100,9 +100,12 @@ function lock(msg){
  <button class="gbtn" onclick="google()"><b>G</b> Continue with Google</button><div class="err" style="margin-top:12px">${msg||''}</div>`;
 }
 async function google(){
- const a=fb.auth(),pr=new firebase.auth.GoogleAuthProvider();
- try{await a.signInWithPopup(pr)}
- catch(e){if(e.code==='auth/popup-blocked'||e.code==='auth/operation-not-supported-in-this-environment')a.signInWithRedirect(pr);else if(e.code!=='auth/popup-closed-by-user')lock(esc(e.message))}
+ const b=document.querySelector('.gbtn');b&&(b.disabled=true);
+ const pr=new firebase.auth.GoogleAuthProvider();pr.setCustomParameters({prompt:'select_account'});
+ try{await fb.auth().signInWithPopup(pr)}
+ catch(e){
+  if(e.code==='auth/popup-closed-by-user'||e.code==='auth/cancelled-popup-request')return lock();
+  lock(e.code==='auth/popup-blocked'?'Your browser blocked the sign-in popup. Allow pop-ups for this site and try again.':esc((e.code||'error')+' — '+(e.message||'')))}
 }
 async function load(){
  try{const raw=await readRaw();DB=raw?JSON.parse(raw.json):blank();if(!raw)await writeRaw({json:JSON.stringify(DB),t:Date.now()});
@@ -124,7 +127,7 @@ const openT=ctx=>DB.tasks.filter(t=>!t.done&&(!ctx||t.ctx===ctx));
 /* ---------- views ---------- */
 const TABS=[['dash','◉  Dashboard'],['work','▣  Work'],['personal','◐  Personal'],['ideas','✦  Ideas'],['learn','✎  Learning'],['goals','◎  Targets']];
 function render(){
- $('#app').innerHTML=`<nav><h1><span class="logo">K</span>Keeper</h1>${TABS.map(([k,n])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${n}</button>`).join('')}<div class="sp"></div>${CLOUD&&user?`<small class="mu" style="padding:6px 12px;word-break:break-word">${esc(user.displayName||user.email)}</small>`:''}<small class="mode ${CLOUD?'':'warn'}">${CLOUD?'☁ Cloud sync on':'⚠ Local only (Firebase not set)'}</small><small id="sync" class="mu" style="padding:6px 12px">Ready</small>${CLOUD?'<button onclick="logout()">Sign out</button>':''}</nav>
+ $('#app').innerHTML=`<nav><h1><span class="logo">K</span>Keeper</h1>${TABS.map(([k,n])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${n}</button>`).join('')}<div class="sp"></div>${CLOUD&&user?`<small class="mu" style="padding:6px 12px;word-break:break-word">${esc(user.displayName||user.email)}</small>`:''}<small class="mode ${CLOUD?'':'warn'}">${CLOUD?'☁ Cloud sync on · v4':'⚠ Local only · v4'}</small><small id="sync" class="mu" style="padding:6px 12px">Ready</small>${CLOUD?'<button onclick="logout()">Sign out</button>':''}</nav>
  <main>${({dash,work:()=>matrix('work'),personal:()=>matrix('personal'),ideas,learn,goals})[tab==='work'||tab==='personal'?tab:tab]()}</main>
  <button class="fab pri" onclick="wiz()" aria-label="Add job">+</button>`;
 }
