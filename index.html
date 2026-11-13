@@ -77,6 +77,30 @@ nav h1,nav .sp,nav .out,nav .mode,nav #sync{display:none}nav button{flex:0 0 aut
 main{padding:14px 14px 100px}.fab{bottom:88px;right:16px}.mob{display:inline-flex;gap:8px}.hd h2{font-size:24px}.g4{grid-template-columns:1fr 1fr}#m>div{padding:16px}}
 @media(min-width:1500px){main{max-width:1280px}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.top,.scrim{display:none}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}
+.tile{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:18px 16px;min-height:128px;background:var(--p);border:1px solid var(--ln);border-radius:16px;text-align:left;color:var(--tx);box-shadow:0 8px 24px -16px #000a;transition:transform .15s,border-color .15s}
+.tile:hover{transform:translateY(-3px);border-color:var(--ac)}.tile .ic{font-size:26px;width:46px;height:46px;border-radius:13px;display:grid;place-items:center;background:var(--p2);margin-bottom:8px;color:var(--ac)}
+.tile b{font:700 17px 'Bricolage Grotesque',sans-serif}.tile .sub{color:var(--mu);font-size:13px}
+.badge{background:var(--bad);color:#fff;border-radius:99px;font-size:11px;padding:1px 7px;margin-left:6px}.homebtn{margin-bottom:14px}
+#m>div:has(.chatwin){padding:0;overflow:hidden}.chatwin{display:flex;flex-direction:column;height:min(80vh,660px)}
+.ch{display:flex;gap:10px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--ln)}.ch>div{flex:1}
+.av{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--ac),#e8833a);color:#1a1405;display:grid;place-items:center;font-weight:800}
+.chatwin .chat{flex:1;height:auto;border:0;border-radius:0;margin:0;padding:12px 14px}
+.b{max-width:82%;width:fit-content;padding:6px 10px 4px;border-radius:12px;margin:2px 0;white-space:pre-wrap;word-break:break-word}.b.first{margin-top:9px}
+.b.me{margin-left:auto;background:#1f5c47;color:#eaf7f0;border-bottom-right-radius:4px}.b.th{background:var(--p);border:1px solid var(--ln);border-bottom-left-radius:4px}
+.b strong{display:block;color:var(--ac);font-size:12px}.b time{display:block;text-align:right;font-size:10px;opacity:.75}
+.day{text-align:center;margin:12px 0}.day span{background:var(--p);border:1px solid var(--ln);border-radius:8px;padding:2px 10px;font-size:12px;color:var(--mu)}
+.cin{display:flex;gap:8px;padding:10px;border-top:1px solid var(--ln);align-items:flex-end}.cin textarea{flex:1;margin:0;resize:none;border-radius:20px;max-height:120px;min-height:44px}.cin .send{border-radius:50%;width:44px;padding:0}
+@media(prefers-color-scheme:light){.b.me{background:#d9f5e6;color:#12372a}}
+@media(max-width:760px){
+nav{position:fixed;inset:0 auto 0 0;width:270px;max-width:84vw;height:100%;flex-direction:column;overflow-y:auto;transform:translateX(-102%);transition:transform .22s;z-index:30;background:var(--p);border:0;border-right:1px solid var(--ln);padding:16px 12px}
+body.nav-open nav{transform:none}body.nav-open .scrim{display:block;position:fixed;inset:0;background:#0009;z-index:25}
+nav h1,nav .sp{display:block}nav h1{display:flex}nav .out,nav .mode,nav #sync{display:block}nav button{flex:none;min-width:0;text-align:left;font-size:15px;padding:11px 12px}nav button.on{box-shadow:inset 3px 0 var(--ac)}
+.top{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10;padding:8px 12px;background:var(--p);border-bottom:1px solid var(--ln)}.topt{flex:1;font:700 18px 'Bricolage Grotesque',sans-serif}
+main{padding:14px}.fab{bottom:20px;right:16px}.tiles{grid-template-columns:1fr 1fr}.mob{display:none}
+#m>div:has(.chatwin){border-radius:0}#m:has(.chatwin){padding:0}#m>div:has(.chatwin){width:100%;max-height:100%;height:100%}.chatwin{height:100%}}
 </style>
 </head>
 <body>
@@ -97,7 +121,7 @@ const iso=d=>{d=new Date(d);return d.getFullYear()+'-'+String(d.getMonth()+1).pa
 const TODAY=()=>iso(new Date()),addD=(n,from)=>{const d=new Date(from||Date.now());d.setDate(d.getDate()+n);return iso(d)};
 const diff=a=>Math.round((new Date(a+'T00:00')-new Date(TODAY()+'T00:00'))/864e5);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const CLOUD=!!CFG.apiKey;let fb,user,DB,tab='dash',saveT;
+const CLOUD=!!CFG.apiKey;let fb,user,DB,tab='home',saveT;
 
 /* ---------- storage (plain JSON; Firestore if configured, else this browser) ---------- */
 const blank=()=>({tasks:[],ideas:[],learn:[],goals:[],score:0,log:[]});
@@ -137,12 +161,7 @@ function autoDeadline(w){
 const openT=ctx=>DB.tasks.filter(t=>!t.done&&(!ctx||t.ctx===ctx));
 
 /* ---------- views ---------- */
-const TABS=[['dash','◉  Dashboard'],['work','▣  Work'],['personal','◐  Personal'],['shared','⇄  Shared'],['trips','✈  Trips'],['msgs','✉  Messages'],['ideas','✦  Ideas'],['learn','✎  Learning'],['goals','◎  Targets']];
-function render(fid){
- $('#app').innerHTML=`<nav aria-label="Main"><h1><span class="logo" aria-hidden="true">K</span>Keeper</h1>${TABS.map(([k,n])=>`<button class="${tab===k?'on':''}" ${tab===k?'aria-current="page"':''} onclick="go('${k}')">${n}</button>`).join('')}<div class="sp"></div>${CLOUD&&user?`<button class="out" onclick="profForm()" aria-label="Edit profile">👤 ${esc(PROF?.name||user.displayName||'Profile')}</button>`:''}<small class="mode ${CLOUD?'':'warn'}">${CLOUD?'☁ Cloud sync on · v6':'⚠ Local only · v6'}</small><small id="sync" class="mu" role="status" aria-live="polite" style="padding:6px 12px">Ready</small>${CLOUD?'<button class="out" onclick="logout()">Sign out</button>':''}</nav><main id="main" tabindex="-1">${VIEWS[tab]()}</main><button class="fab pri" onclick="wiz()" aria-label="Add job">+</button>`;
- if(fid){const e=$('#'+fid);if(e){e.focus();try{e.setSelectionRange(e.value.length,e.value.length)}catch(_){}}}
-}
-const go=k=>{tab=k;curTrip=null;if(k==='msgs'&&CLOUD)loadPeople();render();$('#main').focus()};
+const TABS=[['home','⌂  Home'],['dash','◉  Dashboard'],['work','▣  Work'],['personal','◐  Personal'],['shared','⇄  Shared'],['trips','✈  Trips'],['msgs','✉  Messages'],['ideas','✦  Ideas'],['learn','✎  Learning'],['goals','◎  Targets']];
 function tcard(t){const d=diff(t.deadline),done=t.steps.filter(s=>s.done).length;
  return`<button class="t" onclick="detail('${t.id}')"><b>${esc(t.title)}</b><small><span class="${d<0?'late':''}">${d<0?Math.abs(d)+' days overdue':d===0?'due today':'due in '+d+' days'}</span>${t.steps.length?`<span>${done}/${t.steps.length} steps</span>`:''}${t.ext?`<span class="late">extended ×${t.ext}</span>`:''}</small></button>`}
 function matrix(ctx){
@@ -220,9 +239,9 @@ function ext(id){const t=DB.tasks.find(x=>x.id===id),pen=5*(t.ext+1);
  if(!n||!/^\d{4}-\d\d-\d\d$/.test(n)||n<=t.deadline)return alert('Pick a date later than the current deadline.');
  t.deadline=n;t.ext++;DB.score-=pen;save();detail(id);render()}
 
-/* ===== v6: profile, shared tasks + chat, trips ===== */
+/* ===== v7: profile, shared tasks + chat, trips ===== */
 const FS=()=>fb.firestore();let SH=[],SHERR='',unsubSH,curTrip=null,chatUn=null,PROF=null,LOCK=false,lastF;
-const VIEWS={dash,work:()=>matrix('work'),personal:()=>matrix('personal'),shared:sharedV,trips:tripsV,msgs:msgsV,ideas,learn,goals};
+const VIEWS={home:homeV,dash,work:()=>matrix('work'),personal:()=>matrix('personal'),shared:sharedV,trips:tripsV,msgs:msgsV,ideas,learn,goals};
 async function ensureProfile(){const d=await FS().doc('profiles/'+user.uid).get();PROF=d.exists?d.data():null;
  if(unsubSH)unsubSH();listenMore();
  unsubSH=FS().collection('shared').where('members','array-contains',user.uid).onSnapshot(s=>{SHERR='';SH=s.docs.map(d=>({id:d.id,...d.data()}));if(tab==='shared'&&!$('#m').classList.contains('on'))render()},e=>{SHERR=e.message;if(tab==='shared')render()});
@@ -253,30 +272,28 @@ function shOpen(id){const s=SH.find(x=>x.id===id);if(!s)return;
  <div id="chat" class="chat" role="log" aria-live="polite" aria-label="Messages"></div>
  <div class="row"><input id="cm" aria-label="Message" placeholder="Write a message…" onkeydown="if(event.key==='Enter')shSend('${id}')"><button class="pri" onclick="shSend('${id}')">Send</button></div>
  <div class="row sp2" style="margin-top:14px"><button onclick="shDone('${id}',${!s.done})">${s.done?'Reopen':'Mark done'}</button><span class="row">${s.owner===user.uid?`<button onclick="shDel('${id}')">Delete</button>`:''}<button onclick="closeM()">Close</button></span></div>`);
- chatUn=FS().collection('shared/'+id+'/msgs').orderBy('t').onSnapshot(q=>{const c=$('#chat');if(!c)return;c.innerHTML=q.docs.map(d=>{const m=d.data();return`<p class="msg ${m.uid===user.uid?'me':''}"><b>${esc(m.name)}</b> ${esc(m.text)}</p>`}).join('')||'<span class="mu">No messages yet.</span>';c.scrollTop=c.scrollHeight})}
+ chatUn=FS().collection('shared/'+id+'/msgs').orderBy('t').onSnapshot(q=>{const c=$('#chat');if(!c)return;c.innerHTML=bubbles(q,true);c.scrollTop=c.scrollHeight})}
 async function shAdd(id){const e=$('#ie').value.trim();if(e)alert(await shInvite(id,e)?'Added. Reopen the task to see them.':'No Keeper user with that email. Ask them to sign in once.')}
-const shSend=async id=>{const i=$('#cm'),t=i.value.trim();if(!t)return;i.value='';await FS().collection('shared/'+id+'/msgs').add({uid:user.uid,name:PROF.name,text:t,t:Date.now()})};
+const shSend=async id=>{const i=$('#cm'),t=i.value.trim();if(!t)return;i.value='';i.style.height='auto';await FS().collection('shared/'+id+'/msgs').add({uid:user.uid,name:PROF.name,text:t,t:Date.now()})};
 const shDone=(id,v)=>{FS().doc('shared/'+id).update({done:v});closeM()};
 const shDel=async id=>{if(confirm('Delete for everyone?')){await FS().doc('shared/'+id).delete();closeM()}};
-/* ===== v6: shared trips (members, assigned tasks, plan, chat) + direct messages ===== */
+/* ===== v7: shared trips (members, assigned tasks, plan, chat) + direct messages ===== */
 let TR=[],TRERR='',unsubTR,unsubDM,DMS=[],PEOPLE=null,DMC=null;
 const live=()=>{const a=document.activeElement;if($('#m').classList.contains('on'))return;if(a&&/^(INPUT|TEXTAREA)$/.test(a.tagName)&&a.value&&a.type!=='checkbox')return;render(a&&a.id)};
 function listenMore(){
  unsubTR&&unsubTR();unsubDM&&unsubDM();
  unsubTR=FS().collection('trips').where('members','array-contains',user.uid).onSnapshot(s=>{TRERR='';TR=s.docs.map(d=>({id:d.id,...d.data()}));if(tab==='trips')live()},e=>{TRERR=e.message;if(tab==='trips')render()});
- unsubDM=FS().collection('dms').where('members','array-contains',user.uid).onSnapshot(s=>{DMS=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.last||0)-(a.last||0));if(tab==='msgs')live()},e=>{});
+ unsubDM=FS().collection('dms').where('members','array-contains',user.uid).onSnapshot(s=>{DMS=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.last||0)-(a.last||0));live()},e=>{});
  loadPeople()}
 const loadPeople=()=>FS().collection('profiles').limit(300).get().then(s=>{PEOPLE=s.docs.map(d=>d.data());if(tab==='msgs')live()}).catch(()=>{});
 /* chat helpers */
-function chatModal(title,path){modal(`<h3>${title}</h3><div id="chat" class="chat" role="log" aria-live="polite" aria-label="Messages"></div><div class="row"><input id="cm" aria-label="Message" placeholder="Write a message…" onkeydown="if(event.key==='Enter')send('${path}')"><button class="pri" onclick="send('${path}')">Send</button></div><div class="row sp2" style="margin-top:12px"><span></span><button onclick="closeM()">Close</button></div>`);
- chatUn=FS().collection(path).orderBy('t').onSnapshot(q=>{const c=$('#chat');if(!c)return;c.innerHTML=q.docs.map(d=>{const m=d.data();return`<p class="msg ${m.uid===user.uid?'me':''}"><b>${esc(m.name)}</b> ${esc(m.text)}</p>`}).join('')||'<span class="mu">No messages yet.</span>';c.scrollTop=c.scrollHeight})}
 const send=async p=>{const i=$('#cm'),t=i.value.trim();if(!t)return;i.value='';await FS().collection(p).add({uid:user.uid,name:PROF.name,text:t,t:Date.now()});
- if(DMC&&p.startsWith('dms/'))FS().doc('dms/'+DMC.pid).set({members:DMC.pid.split('_'),names:DMC.names,last:Date.now(),lastText:t.slice(0,60)},{merge:true})};
+ if(DMC&&p.startsWith('dms/'))FS().doc('dms/'+DMC.pid).set({members:DMC.pid.split('_'),names:DMC.names,last:Date.now(),lastBy:user.uid,lastText:t.slice(0,60)},{merge:true})};
 function dmOpen(o,on){const pid=[user.uid,o].sort().join('_');DMC={pid,names:{[user.uid]:PROF.name,[o]:on}};chatModal('Message '+esc(on),'dms/'+pid+'/msgs')}
 function msgsV(){if(!CLOUD)return'<div class="hd"><h2>Messages</h2></div><p class="mu">Sign in with Google to message people.</p>';
  const q=(window._pq||'').toLowerCase(),list=(PEOPLE||[]).filter(p=>p.uid!==user.uid&&(!q||(p.name+' '+p.role+' '+p.org+' '+p.email).toLowerCase().includes(q))).slice(0,30);
  const b=(u,n,s1,s2)=>`<button class="t" data-u="${u}" data-n="${esc(n)}" onclick="dmOpen(this.dataset.u,this.dataset.n)"><b>${esc(n)}</b><small><span>${esc(s1||'')}</span><span>${esc(s2||'')}</span></small></button>`;
- return`<div class="hd"><h2>Messages</h2></div><div class="grid g2"><section class="card"><h3 style="margin-bottom:10px">Conversations</h3>${DMS.map(d=>{const o=d.members.find(u=>u!==user.uid);return b(o,d.names?.[o]||'Member',d.lastText)}).join('')||'<p class="mu">No conversations yet. Find someone.</p>'}</section>
+ return`<div class="hd"><h2>Messages</h2></div><div class="grid g2"><section class="card"><h3 style="margin-bottom:10px">Conversations</h3>${DMS.map(d=>{const o=d.members.find(u=>u!==user.uid);return b(o,d.names?.[o]||'Member',d.lastText,unread(d)?'● New':'')}).join('')||'<p class="mu">No conversations yet. Find someone.</p>'}</section>
  <section class="card"><h3 style="margin-bottom:10px">Find people</h3><input id="pq" type="search" aria-label="Search people by name, role or email" placeholder="Search name, role, email" value="${esc(window._pq||'')}" oninput="window._pq=this.value;render('pq')">${list.map(p=>b(p.uid,p.name,p.role,p.org)).join('')||'<p class="mu">No matches.</p>'}</section></div>`}
 /* trips */
 const TL=['Passport / ID','Visa / permits','Tickets','Hotel bookings','Travel insurance','Cards and some cash','Chargers and power bank','Medicines','Set work auto-reply / handover','Tell bank about travel','Download offline maps'];
@@ -308,6 +325,28 @@ const tBook=id=>{const v=$('#bk').value.trim();if(!v)return;tmut(id,x=>{(x.book=
 async function tInv(id){const e=$('#ti').value.trim();if(!e)return;alert(await inviteTo('trips',id,e)?'Added to the trip.':'No Keeper user with that email yet. Ask them to sign in once.')}
 async function inviteTo(col,id,email){const q=await FS().collection('profiles').where('email','==',email.toLowerCase()).limit(1).get();if(q.empty)return false;const p=q.docs[0].data();await FS().doc(col+'/'+id).update({members:firebase.firestore.FieldValue.arrayUnion(p.uid),['names.'+p.uid]:p.name});return true}
 const tDel=async id=>{if(confirm('Delete this trip for everyone?')){curTrip=null;await FS().doc('trips/'+id).delete()}};
+
+/* ===== v7: home screen, drawer nav, WhatsApp-style text chat ===== */
+const rdGet=id=>+localStorage.getItem('kr_'+id)||0,rdSet=id=>localStorage.setItem('kr_'+id,Date.now());
+const unread=d=>d.lastBy&&d.lastBy!==user.uid&&(d.last||0)>rdGet(d.id),unreadN=()=>DMS.filter(unread).length;
+function homeV(){const nm=(PROF?.name||user?.displayName||'').split(' ')[0],h=new Date().getHours(),od=openT().filter(t=>diff(t.deadline)<0).length,nc=CLOUD?'':'Needs sign-in';
+ const tiles=[['dash','◉','Dashboard',DB.score+' points'],['work','▣','Work',openT('work').length+' open'],['personal','◐','Personal',openT('personal').length+' open'],['shared','⇄','Shared tasks',nc||SH.length+' shared'],['trips','✈','Trips',nc||TR.length+' trips'],['msgs','✉','Messages',nc||(unreadN()?unreadN()+' unread':'All caught up')],['ideas','✦','Ideas',DB.ideas.length+' saved'],['learn','✎','Learning',DB.learn.filter(l=>!l.done).length+' to learn'],['goals','◎','Targets',DB.goals.length+' set']];
+ return`<div class="hd"><h2>${h<12?'Good morning':h<17?'Good afternoon':'Good evening'}${nm?', '+esc(nm):''}</h2></div>${od?`<div class="card" role="alert" style="border-color:var(--bad);margin-bottom:14px"><b class="late">⚠ ${od} overdue</b> — <button onclick="go('work')">Open Work</button> <button onclick="go('personal')">Open Personal</button></div>`:''}<div class="tiles">${tiles.map(([k,i,n,s])=>`<button class="tile" onclick="go('${k}')"><span class="ic" aria-hidden="true">${i}</span><b>${n}${k==='msgs'&&unreadN()?`<span class="badge">${unreadN()}</span>`:''}</b><span class="sub">${s}</span></button>`).join('')}</div>`}
+function render(fid){const cur=TABS.find(x=>x[0]===tab)[1].replace(/^\S+\s+/,'');
+ $('#app').innerHTML=`<nav id="nav" aria-label="Main"><h1><span class="logo" aria-hidden="true">K</span>Keeper</h1>${TABS.map(([k,n])=>`<button class="${tab===k?'on':''}" ${tab===k?'aria-current="page"':''} onclick="go('${k}')">${n}${k==='msgs'&&CLOUD&&unreadN()?`<span class="badge">${unreadN()}</span>`:''}</button>`).join('')}<div class="sp"></div>${CLOUD&&user?`<button class="out" onclick="profForm()" aria-label="Edit profile">👤 ${esc(PROF?.name||user.displayName||'Profile')}</button>`:''}<small class="mode ${CLOUD?'':'warn'}">${CLOUD?'☁ Cloud sync on · v7':'⚠ Local only · v7'}</small><small id="sync" class="mu" role="status" aria-live="polite" style="padding:6px 12px">Ready</small>${CLOUD?'<button class="out" onclick="logout()">Sign out</button>':''}</nav><div class="scrim" onclick="toggleNav()"></div>
+ <header class="top"><button class="menu" aria-label="Open menu" aria-expanded="false" onclick="toggleNav()">☰</button><b class="topt">${cur}</b><button onclick="go('home')" aria-label="Home">⌂ Home</button></header>
+ <main id="main" tabindex="-1">${tab!=='home'?'<button class="homebtn" onclick="go(\'home\')">⌂ Home</button>':''}${VIEWS[tab]()}</main><button class="fab pri" onclick="wiz()" aria-label="Add job">+</button>`;
+ if(fid){const e=$('#'+fid);if(e){e.focus();try{e.setSelectionRange(e.value.length,e.value.length)}catch(_){}}}
+}
+const go=k=>{tab=k;curTrip=null;document.body.classList.remove('nav-open');if(k==='msgs'&&CLOUD)loadPeople();render();$('#main').focus()};
+const toggleNav=()=>{const o=document.body.classList.toggle('nav-open'),b=document.querySelector('.menu');b&&b.setAttribute('aria-expanded',o)};
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.body.classList.remove('nav-open')});
+function bubbles(q,group){let last='',lu='';const tm=t=>new Date(t).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}),dl=t=>{const d=iso(t);return d===TODAY()?'Today':d===addD(-1)?'Yesterday':new Date(t).toLocaleDateString([],{day:'numeric',month:'short',year:'numeric'})};
+ return q.docs.map(d=>{const m=d.data(),me=m.uid===user.uid,day=iso(m.t);let o='';if(day!==last){o+=`<div class="day"><span>${dl(m.t)}</span></div>`;last=day;lu=''}const first=lu!==m.uid;lu=m.uid;
+  return o+`<div class="b ${me?'me':'th'} ${first?'first':''}">${group&&!me&&first?`<strong>${esc(m.name)}</strong>`:''}${esc(m.text)}<time>${tm(m.t)}</time></div>`}).join('')||'<p class="mu" style="text-align:center;margin-top:60px">No messages yet. Say hello 👋</p>'}
+function chatModal(title,path){const dm=path.startsWith('dms/');
+ modal(`<div class="chatwin"><div class="ch"><span class="av" aria-hidden="true">${title[0]}</span><div><b>${title}</b><small class="mu" style="display:block">${dm?'Direct message':'Group chat'}</small></div><button onclick="closeM()" aria-label="Close chat">✕</button></div><div id="chat" class="chat" role="log" aria-live="polite" aria-label="Messages"></div><div class="cin"><textarea id="cm" rows="1" aria-label="Message" placeholder="Type a message" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send('${path}')}" oninput="this.style.height='auto';this.style.height=Math.min(120,this.scrollHeight)+'px'"></textarea><button class="pri send" onclick="send('${path}')" aria-label="Send message">➤</button></div></div>`);$('#cm').focus();
+ chatUn=FS().collection(path).orderBy('t').onSnapshot(q=>{const c=$('#chat');if(!c)return;c.innerHTML=bubbles(q,!dm);c.scrollTop=c.scrollHeight;if(dm&&DMC)rdSet(DMC.pid)})}
 
 /* ---------- boot ---------- */
 if(CLOUD&&typeof firebase==='undefined'){lock('Could not load Firebase. Check your internet or ad-blocker and refresh.')}
